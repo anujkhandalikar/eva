@@ -38,14 +38,16 @@ Respond with a valid JSON object matching this schema:
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
       }
     });
 
-    const text = response.text;
+    let text = response.text;
     if (!text) {
       throw new Error("No text returned from Gemini");
     }
+
+    // Strip markdown code blocks if the model wrapped the JSON
+    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     const result = JSON.parse(text) as TaskResult;
     return result;
