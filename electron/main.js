@@ -35,7 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path = __importStar(require("path"));
+const node_global_key_listener_1 = require("node-global-key-listener");
 let mainWindow = null;
+let lastCtrlPressTime = 0;
+const DOUBLE_TAP_THRESHOLD = 400; // ms
+// Initialize the global listener
+const keyboardListener = new node_global_key_listener_1.GlobalKeyboardListener();
 function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
         width: 600,
@@ -55,24 +60,32 @@ function createWindow() {
         mainWindow?.hide();
     });
 }
+function toggleOverlay() {
+    if (mainWindow) {
+        if (mainWindow.isVisible()) {
+            mainWindow.hide();
+        }
+        else {
+            mainWindow.show();
+            mainWindow.focus();
+        }
+    }
+}
 electron_1.app.whenReady().then(() => {
     createWindow();
-    // Register a global shortcut
-    const ret = electron_1.globalShortcut.register('CommandOrControl+Shift+Space', () => {
-        if (mainWindow) {
-            if (mainWindow.isVisible()) {
-                mainWindow.hide();
+    // Listen for double tap Control
+    keyboardListener.addListener((e) => {
+        if (e.state === "DOWN" && (e.name === "LEFT CTRL" || e.name === "RIGHT CTRL")) {
+            const now = Date.now();
+            if (now - lastCtrlPressTime < DOUBLE_TAP_THRESHOLD) {
+                toggleOverlay();
+                lastCtrlPressTime = 0; // reset to prevent triple-tap triggering twice
             }
             else {
-                mainWindow.show();
-                mainWindow.focus();
-                // Reset input focus? We could send an IPC to focus it, but autofocus might just work when shown.
+                lastCtrlPressTime = now;
             }
         }
     });
-    if (!ret) {
-        console.log('Registration failed for global shortcut');
-    }
     electron_1.app.on('activate', () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0) {
             createWindow();
@@ -85,7 +98,7 @@ electron_1.app.on('window-all-closed', () => {
     }
 });
 electron_1.app.on('will-quit', () => {
-    electron_1.globalShortcut.unregisterAll();
+    // GlobalKeyboardListener cleans itself up, but we could forcefully kill it if needed.
 });
 electron_1.ipcMain.on('submit-task', (event, task) => {
     console.log('Task captured:', task);
