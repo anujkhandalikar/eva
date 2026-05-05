@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Eva</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: rgba(25, 25, 25, 0.95);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255,255,255,0.1);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh; /* Fill the window */
+      -webkit-app-region: drag; /* Allow dragging */
+    }
+    input {
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 20px;
+      padding: 0 20px;
+      outline: none;
+      -webkit-app-region: no-drag;
+    }
+    input::placeholder {
+      color: rgba(255,255,255,0.4);
+    }
+  </style>
+</head>
+<body>
+  <input type="text" id="taskInput" placeholder="What's the task?" autofocus>
+  <script src="renderer.js"></script>
+</body>
+</html>
