@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { inngest } from '@/inngest/client';
 
 export async function POST(req: Request) {
   try {
@@ -23,6 +24,14 @@ export async function POST(req: Request) {
       .single();
 
     if (error) throw error;
+
+    await inngest.send({
+      name: 'task/created',
+      data: {
+        id: data.id,
+        input: data.input,
+      },
+    });
 
     return NextResponse.json({ task: data });
   } catch (error: any) {

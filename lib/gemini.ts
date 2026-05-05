@@ -1,0 +1,59 @@
+import { GoogleGenAI } from "@google/genai";
+
+const apiKey = process.env.GEMINI_API_KEY;
+
+export const ai = new GoogleGenAI({
+  apiKey: apiKey || "dummy-key-for-build",
+});
+
+export type TaskResult = {
+  summary: string;
+  full_result: string;
+  requires_approval: boolean;
+};
+
+export async function processTask(input: string): Promise<TaskResult> {
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set in the environment");
+  }
+
+  const prompt = `You are Eva, a personal assistant. 
+Your task is to execute the user's request. 
+If the task requires internet research, use the Google Search tool. 
+If the task involves taking an external action that has real-world consequences (like sending an email, making a purchase, booking something, or modifying data on an external service), you CANNOT perform the action yourself. Instead, you must mark it as requiring approval.
+
+User request: "${input}"
+
+Respond with a valid JSON object matching this schema:
+{
+  "summary": "A concise summary of the result (MAXIMUM 100 words). If approval is needed, state what action will be taken once approved.",
+  "full_result": "The full detailed result of the research or task. If approval is needed, provide the full details of what is requested.",
+  "requires_approval": boolean
+}
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+      }
+    });
+
+    const text = response.text;
+    if (!text) {
+      throw new Error("No text returned from Gemini");
+    }
+
+    const result = JSON.parse(text) as TaskResult;
+    return result;
+  } catch (error: unknown) {
+    console.error("Error calling Gemini API:", error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Unknown error occurred during Gemini API call");
+  }
+}
