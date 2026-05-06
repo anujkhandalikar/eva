@@ -21,15 +21,15 @@ export default function Dashboard() {
   useEffect(() => {
     // Initial fetch
     const fetchTasks = async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setTasks(data);
+      try {
+        const res = await fetch('/api/tasks');
+        const json = await res.json();
+        if (json.tasks) setTasks(json.tasks);
+      } catch {
+        // network error — show empty state rather than infinite spinner
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchTasks();

@@ -18,8 +18,8 @@ export async function processTask(input: string): Promise<TaskResult> {
   }
 
   const prompt = `You are Eva, a personal assistant. 
-Your task is to execute the user's request. 
-If the task requires internet research, use the Google Search tool. 
+Your task is to thoroughly execute the user's request using deep, multi-step reasoning.
+If the task requires internet research, use the Google Search tool extensively to synthesize a highly accurate and deeply reasoned answer. Take your time to think it through.
 If the task involves taking an external action that has real-world consequences (like sending an email, making a purchase, booking something, or modifying data on an external service), you CANNOT perform the action yourself. Instead, you must mark it as requiring approval.
 
 User request: "${input}"
@@ -34,7 +34,7 @@ Respond with a valid JSON object matching this schema:
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],

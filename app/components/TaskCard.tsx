@@ -1,4 +1,6 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
 
 type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed';
 
@@ -8,6 +10,7 @@ export type Task = {
   input: string;
   status: TaskStatus;
   result_summary: string | null;
+  result_full: string | null;
   error_reason: string | null;
   requires_approval: boolean;
   approved: boolean;
@@ -30,6 +33,8 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 export default function TaskCard({ task }: { task: Task }) {
+  const [rerunning, setRerunning] = useState(false);
+
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
     day: 'numeric',
@@ -37,17 +42,35 @@ export default function TaskCard({ task }: { task: Task }) {
     minute: '2-digit',
   });
 
+  async function handleRerun() {
+    setRerunning(true);
+    try {
+      await fetch(`/api/tasks/${task.id}/rerun`, { method: 'POST' });
+    } finally {
+      setRerunning(false);
+    }
+  }
+
   return (
     <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-xl p-5 mb-2 text-white flex flex-col gap-3">
       <div className="flex justify-between items-start gap-4">
         <p className="font-medium text-lg leading-snug flex-1">{task.input}</p>
-        <span
-          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
-            statusColors[task.status]
-          }`}
-        >
-          {statusLabels[task.status]}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
+              statusColors[task.status]
+            }`}
+          >
+            {statusLabels[task.status]}
+          </span>
+          <button
+            onClick={handleRerun}
+            disabled={rerunning || task.status === 'running'}
+            className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {rerunning ? '...' : '↺ Rerun'}
+          </button>
+        </div>
       </div>
 
       {(task.result_summary || task.error_reason) && (

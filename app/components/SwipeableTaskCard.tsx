@@ -32,7 +32,17 @@ const statusLabels: Record<Task['status'], string> = {
 export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: SwipeableTaskCardProps) {
   const controls = useAnimation();
   const [exitX, setExitX] = useState<number>(0);
+  const [rerunning, setRerunning] = useState(false);
   const isFront = index === 0;
+
+  async function handleRerun() {
+    setRerunning(true);
+    try {
+      await fetch(`/api/tasks/${task.id}/rerun`, { method: 'POST' });
+    } finally {
+      setRerunning(false);
+    }
+  }
 
   const handleDragEnd = async (e: any, info: PanInfo) => {
     const threshold = 100;
@@ -79,7 +89,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
         originY: 1
       }}
     >
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm h-[400px] flex flex-col gap-4 shadow-2xl relative overflow-hidden">
+      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm h-[400px] flex flex-col gap-4 shadow-2xl relative">
         
         {/* Swipe Indicators behind the card content */}
         <div className="absolute inset-0 flex justify-between px-6 items-center pointer-events-none opacity-0 z-0 transition-opacity">
@@ -115,7 +125,16 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
 
         <div className="flex justify-between items-center mt-4 pt-4 border-t border-[#2a2a2a] z-10 relative">
           <div className="text-xs text-gray-500">{date}</div>
-          <LLMDropdown task={task} />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRerun}
+              disabled={rerunning || task.status === 'running'}
+              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {rerunning ? '...' : '↺ Rerun'}
+            </button>
+            <LLMDropdown task={task} />
+          </div>
         </div>
       </div>
     </motion.div>

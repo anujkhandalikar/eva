@@ -3,7 +3,14 @@ import { supabase } from "@/lib/supabase";
 import { processTask } from "@/lib/gemini";
 
 export const executeTask = inngest.createFunction(
-  { id: "execute-task", triggers: [{ event: "task/created" }], retries: 0 },
+  { 
+    id: "execute-task", 
+    triggers: [{ event: "task/created" }], 
+    retries: 3,
+    concurrency: {
+      limit: 1, // Only process 1 task at a time to avoid Gemini API rate limits
+    }
+  },
   async ({ event, step }) => {
     const { id, input } = event.data;
 
