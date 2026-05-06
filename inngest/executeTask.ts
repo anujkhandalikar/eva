@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { processTask } from "@/lib/gemini";
 
 export const executeTask = inngest.createFunction(
-  { id: "execute-task", triggers: [{ event: "task/created" }] },
+  { id: "execute-task", triggers: [{ event: "task/created" }], retries: 0 },
   async ({ event, step }) => {
     const { id, input } = event.data;
 

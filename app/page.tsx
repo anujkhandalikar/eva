@@ -3,10 +3,20 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import TaskCard, { Task } from '@/app/components/TaskCard';
+import ViewToggle, { ViewMode } from '@/app/components/ViewToggle';
+import CardStack from '@/app/components/CardStack';
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<ViewMode>('cards');
+
+  const handleDeleteTask = async (id: string) => {
+    // Remove from local state immediately for snappy UI
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    // Remove from database
+    await supabase.from('tasks').delete().eq('id', id);
+  };
 
   useEffect(() => {
     // Initial fetch
@@ -37,6 +47,8 @@ export default function Dashboard() {
             setTasks((prev) =>
               prev.map((t) => (t.id === payload.new.id ? (payload.new as Task) : t))
             );
+          } else if (payload.eventType === 'DELETE') {
+            setTasks((prev) => prev.filter((t) => t.id !== payload.old.id));
           }
         }
       )
@@ -52,7 +64,7 @@ export default function Dashboard() {
       <div className="max-w-2xl mx-auto">
         <header className="mb-10 flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-white tracking-tight">Eva</h1>
-          <div className="text-sm text-gray-500 font-medium">Validation Build</div>
+          <ViewToggle view={view} onChange={setView} />
         </header>
         
         {loading ? (
@@ -61,8 +73,14 @@ export default function Dashboard() {
           <div className="text-gray-500 mt-12 text-center p-8 border border-dashed border-[#2a2a2a] rounded-xl">
             No tasks yet. Double tap <kbd className="px-2 py-1 bg-[#222] rounded mx-1 text-gray-300">Control</kbd> to capture one.
           </div>
+        ) : view === 'cards' ? (
+          <CardStack tasks={tasks} onDeleteTask={handleDeleteTask} />
         ) : (
           <div className="flex flex-col">
+            <div className="text-sm font-medium text-gray-500 mb-6 flex items-center justify-between">
+              <span>Current Tasks</span>
+              <span>Showing {tasks.length} tasks</span>
+            </div>
             {tasks.map((task) => (
               <TaskCard key={task.id} task={task} />
             ))}
