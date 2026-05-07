@@ -28,6 +28,21 @@ const statusLabels: Record<Task['status'], string> = {
   failed: 'Failed',
 };
 
+function renderInsight(text: string): React.ReactNode {
+  const parts = text.split(/(\[.*?\]\(.*?\))/g);
+  return parts.map((part, i) => {
+    const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (match) {
+      return (
+        <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
+          {match[1]}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: SwipeableTaskCardProps) {
   const controls = useAnimation();
   const [rerunning, setRerunning] = useState(false);
@@ -106,7 +121,14 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
               {task.error_reason ? (
                 <span className="text-red-400 font-medium">Error: {task.error_reason}</span>
               ) : (
-                task.result_summary
+                <ol className="flex flex-col gap-3">
+                  {(task.result_summary ?? '').split('\n').filter(line => line.trim()).map((line, i) => (
+                    <li key={i} className="flex gap-2 leading-snug">
+                      <span className="text-gray-500 shrink-0 font-medium mt-0.5">{i + 1}.</span>
+                      <span>{renderInsight(line.replace(/^[-–—]\s*/, ''))}</span>
+                    </li>
+                  ))}
+                </ol>
               )}
             </div>
           ) : (
