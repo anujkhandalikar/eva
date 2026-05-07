@@ -46,10 +46,13 @@ Respond with a valid JSON object matching this schema:
       throw new Error("No text returned from Gemini");
     }
 
-    // Strip markdown code blocks if the model wrapped the JSON
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    const result = JSON.parse(text) as TaskResult;
+    // Extract JSON object robustly — model may wrap in markdown or add preamble
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end === -1) {
+      throw new Error(`No JSON object found in Gemini response: ${text.slice(0, 200)}`);
+    }
+    const result = JSON.parse(text.slice(start, end + 1)) as TaskResult;
     return result;
   } catch (error: unknown) {
     console.error("Error calling Gemini API:", error);

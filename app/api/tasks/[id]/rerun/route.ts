@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { inngest } from '@/inngest/client';
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const { data, error } = await supabase
       .from('tasks')
       .update({
@@ -14,7 +15,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         requires_approval: false,
         approved: false,
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
