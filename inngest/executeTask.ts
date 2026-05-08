@@ -1,6 +1,6 @@
 import { inngest } from "./client";
 import { supabase } from "@/lib/supabase";
-import { processTask } from "@/lib/gemini";
+import { processTask } from "@/lib/openai";
 
 export const executeTask = inngest.createFunction(
   { 
@@ -8,7 +8,7 @@ export const executeTask = inngest.createFunction(
     triggers: [{ event: "task/created" }], 
     retries: 3,
     concurrency: {
-      limit: 1, // Only process 1 task at a time to avoid Gemini API rate limits
+      limit: 3,
     }
   },
   async ({ event, step }) => {
@@ -23,7 +23,7 @@ export const executeTask = inngest.createFunction(
     });
 
     try {
-      const result = await step.run("process-with-gemini", async () => {
+      const result = await step.run("process-with-openai", async () => {
         return await processTask(input);
       });
 

@@ -12,10 +12,8 @@ export default function Dashboard() {
   const [view, setView] = useState<ViewMode>('cards');
 
   const handleDeleteTask = async (id: string) => {
-    // Remove from local state immediately for snappy UI
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    // Remove from database
-    await supabase.from('tasks').delete().eq('id', id);
+    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
   };
 
   useEffect(() => {
@@ -61,12 +59,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#121212] py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         <header className="mb-10 flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-white tracking-tight">Eva</h1>
           <ViewToggle view={view} onChange={setView} />
         </header>
-        
+
         {loading ? (
           <div className="text-gray-500 animate-pulse">Loading tasks...</div>
         ) : tasks.length === 0 ? (

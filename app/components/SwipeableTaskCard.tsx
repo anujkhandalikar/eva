@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { motion, useAnimation, PanInfo } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
+import { X, Check } from 'lucide-react';
 import { Task } from './TaskCard';
 import LLMDropdown from './LLMDropdown';
 
@@ -44,18 +45,26 @@ function renderInsight(text: string): React.ReactNode {
 }
 
 export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: SwipeableTaskCardProps) {
-  const controls = useAnimation();
+  const [exitX, setExitX] = useState<number | null>(null);
   const [rerunning, setRerunning] = useState(false);
   const isFront = index === 0;
 
-  useEffect(() => {
-    controls.start({
-      scale: isFront ? 1 : 1 - index * 0.05,
-      y: isFront ? 0 : index * 15,
-      opacity: isFront ? 1 : Math.max(0, 1 - index * 0.2),
-      x: 0,
-    });
-  }, [controls, index, isFront]);
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 200], [-25, 25]);
+
+  // Color overlays — reactive to drag position
+  const deleteOpacity = useTransform(x, [-150, -20, 0], [0.85, 0, 0]);
+  const keepOpacity = useTransform(x, [0, 20, 150], [0, 0, 0.85]);
+
+  const handleDragEnd = (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (info.offset.x < -100) {
+      setExitX(-600);
+      setTimeout(() => onDelete(task.id), 200);
+    } else if (info.offset.x > 100) {
+      setExitX(600);
+      setTimeout(() => onKeep(task.id), 200);
+    }
+  };
 
   async function handleRerun(e: React.MouseEvent) {
     e.stopPropagation();
@@ -67,19 +76,6 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
     }
   }
 
-  const handleDragEnd = async (_e: React.MouseEvent, info: PanInfo) => {
-    const threshold = 100;
-    if (info.offset.x < -threshold) {
-      await controls.start({ x: -250, opacity: 0, transition: { duration: 0.2 } });
-      onDelete(task.id);
-    } else if (info.offset.x > threshold) {
-      await controls.start({ x: 250, opacity: 0, transition: { duration: 0.2 } });
-      onKeep(task.id);
-    } else {
-      controls.start({ x: 0, opacity: 1, transition: { type: 'spring', stiffness: 300, damping: 20 } });
-    }
-  };
-
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
     day: 'numeric',
@@ -89,66 +85,88 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
 
   return (
     <motion.div
-      className="absolute top-0 left-0 right-0 h-full w-full will-change-transform flex items-center justify-center"
       style={{
+        width: '100%',
+        height: '100%',
+        position: 'absolute',
+        top: 0,
+        x: isFront ? x : 0,
+        rotate: isFront ? rotate : 0,
         zIndex: 10 - index,
-        cursor: isFront ? 'grab' : 'auto',
-        originY: 1,
+        scale: 1 - index * 0.05,
+        y: index * 15,
+        opacity: 1 - index * 0.15,
       }}
-      animate={controls}
-      initial={{ scale: 0.95, opacity: 0, y: 20 }}
+      animate={exitX !== null ? { x: exitX, opacity: 0, transition: { duration: 0.25 } } : {}}
       drag={isFront ? 'x' : false}
       dragConstraints={{ left: 0, right: 0 }}
       onDragEnd={handleDragEnd}
-      whileTap={isFront ? { cursor: 'grabbing' } : undefined}
+      className="cursor-grab active:cursor-grabbing"
     >
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl p-6 w-full max-w-sm h-[400px] flex flex-col gap-4 shadow-2xl relative">
+      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl w-full h-full flex flex-col shadow-2xl relative overflow-hidden">
 
-        <div className="flex justify-between items-start gap-4 z-10 relative">
-          <p className="font-medium text-xl leading-snug flex-1 text-white line-clamp-4">{task.input}</p>
-          <span
-            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
-              statusColors[task.status]
-            }`}
-          >
-            {statusLabels[task.status]}
-          </span>
-        </div>
+        {/* Delete overlay (swipe left) */}
+        <motion.div
+          style={{ opacity: deleteOpacity }}
+          className="absolute inset-0 bg-red-600/40 z-20 flex items-center justify-center pointer-events-none rounded-2xl"
+        >
+          <X className="w-24 h-24 text-white drop-shadow-lg" strokeWidth={3} />
+        </motion.div>
 
-        <div className="flex-1 overflow-y-auto mt-2 pr-2 z-10 relative">
-          {(task.result_summary || task.error_reason) ? (
-            <div className="bg-[#151515] border border-[#222] rounded-xl p-4 text-gray-300 text-sm leading-relaxed">
-              {task.error_reason ? (
-                <span className="text-red-400 font-medium">Error: {task.error_reason}</span>
-              ) : (
-                <ol className="flex flex-col gap-3">
-                  {(task.result_summary ?? '').split('\n').filter(line => line.trim()).map((line, i) => (
-                    <li key={i} className="flex gap-2 leading-snug">
-                      <span className="text-gray-500 shrink-0 font-medium mt-0.5">{i + 1}.</span>
-                      <span>{renderInsight(line.replace(/^[-–—]\s*/, ''))}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-gray-500 text-sm italic">
-              {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
-            </div>
-          )}
-        </div>
+        {/* Keep overlay (swipe right) */}
+        <motion.div
+          style={{ opacity: keepOpacity }}
+          className="absolute inset-0 bg-green-500/40 z-20 flex items-center justify-center pointer-events-none rounded-2xl"
+        >
+          <Check className="w-24 h-24 text-white drop-shadow-lg" strokeWidth={3} />
+        </motion.div>
 
-        <div className="flex justify-between items-center pt-4 border-t border-[#2a2a2a] z-10 relative">
-          <div className="text-xs text-gray-500">{date}</div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRerun}
-              disabled={rerunning || task.status === 'running'}
-              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        {/* Card content */}
+        <div className="flex flex-col gap-4 p-6 h-full z-10 relative">
+          <div className="flex justify-between items-start gap-4">
+            <p className="font-medium text-xl leading-snug flex-1 text-white line-clamp-4">{task.input}</p>
+            <span
+              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${statusColors[task.status]}`}
             >
-              {rerunning ? '...' : '↺ Rerun'}
-            </button>
-            <LLMDropdown task={task} />
+              {statusLabels[task.status]}
+            </span>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-2">
+            {(task.result_summary || task.error_reason) ? (
+              <div className="bg-[#151515] border border-[#222] rounded-xl p-4 text-gray-300 text-sm leading-relaxed">
+                {task.error_reason ? (
+                  <span className="text-red-400 font-medium">Error: {task.error_reason}</span>
+                ) : (
+                  <ol className="flex flex-col gap-3">
+                    {(task.result_summary ?? '').split('\n').filter(line => line.trim()).map((line, i) => (
+                      <li key={i} className="flex gap-2 leading-snug">
+                        <span className="text-gray-500 shrink-0 font-medium mt-0.5">{i + 1}.</span>
+                        <span>{renderInsight(line.replace(/^[-–—]\s*/, ''))}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500 text-sm italic">
+                {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between items-center pt-4 border-t border-[#2a2a2a]">
+            <div className="text-xs text-gray-500">{date}</div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRerun}
+                disabled={rerunning || task.status === 'running'}
+                className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {rerunning ? '...' : '↺ Rerun'}
+              </button>
+              <LLMDropdown task={task} />
+            </div>
           </div>
         </div>
       </div>
