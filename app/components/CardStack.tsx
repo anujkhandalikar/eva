@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Task } from './TaskCard';
 import SwipeableTaskCard from './SwipeableTaskCard';
 import { Layers } from 'lucide-react';
@@ -69,31 +70,18 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="text-sm font-medium text-gray-500 mb-8 bg-[#1e1e1e] px-4 py-1.5 rounded-full border border-[#2a2a2a]">
-        Card 1 of {localQueue.length}
-      </div>
-      
-      <div className="relative w-full max-w-sm h-[400px]">
-        {visibleTasks.map((task, index) => (
-          <SwipeableTaskCard
-            key={`${task.id}-${index}`} // Include index in key to force re-render/re-mount if order changes
-            task={task}
-            index={index}
-            onDelete={handleDelete}
-            onKeep={handleKeep}
-          />
-        )).reverse() /* Reverse so the first task (index 0) is rendered last and thus on top */}
-      </div>
-
-      <div className="mt-12 text-center text-xs text-gray-600 flex items-center justify-center gap-6">
-        <div className="flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-[#1e1e1e] border border-[#2a2a2a] flex items-center justify-center font-bold">←</span>
-          <span>Swipe Left to Delete</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span>Swipe Right to Keep</span>
-          <span className="w-8 h-8 rounded-full bg-[#1e1e1e] border border-[#2a2a2a] flex items-center justify-center font-bold">→</span>
-        </div>
+      <div className="relative w-full h-[560px]">
+        <AnimatePresence>
+          {visibleTasks.map((task, index) => (
+            <SwipeableTaskCard
+              key={task.id}
+              task={task}
+              index={index}
+              onDelete={handleDelete}
+              onKeep={handleKeep}
+            />
+          )).reverse()}
+        </AnimatePresence>
       </div>
     </div>
   );

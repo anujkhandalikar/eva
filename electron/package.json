@@ -1,17 +1,17 @@
 {
-  "name": "electron",
+  "name": "eva-overlay",
   "version": "1.0.0",
   "description": "",
   "main": "main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "tsc && electron ."
+    "start": "tsc && env -u ELECTRON_RUN_AS_NODE electron ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^41.5.0",
+    "electron": "^28.3.3",
     "electron-squirrel-startup": "^1.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"

@@ -13,7 +13,7 @@ Eva is a personal productivity tool built to validate one idea: can background t
 | Frontend | Next.js 14 (App Router) + Tailwind CSS |
 | Backend | Next.js API routes |
 | Database | Supabase (tasks table + real-time) |
-| AI / Research | Gemini API (web research + summarisation + task parsing) |
+| AI / Research | OpenAI API — `gpt-4o-mini` + `web_search_preview` tool |
 | Desktop overlay | Electron (global hotkey capture) |
 | Task queue | Inngest (background task execution) |
 | Language | TypeScript throughout — no JavaScript files |
@@ -24,7 +24,7 @@ Eva is a personal productivity tool built to validate one idea: can background t
 
 ### P0 — Must work before anything else matters
 - **Hotkey capture:** Electron registers a global hotkey. Overlay opens in < 500ms. User types task, hits Enter. Overlay closes. Task is sent to backend and queued.
-- **Background execution:** Inngest job picks up the task, calls Gemini API for web research, summarisation, and task parsing. Result is trimmed to ≤ 100 words and written back to Supabase. Runs entirely without user involvement.
+- **Background execution:** Inngest job picks up the task, calls OpenAI API (`gpt-4o-mini` + `web_search_preview`) for web research, summarisation, and task parsing. Result is trimmed to ≤ 100 words and written back to Supabase. Runs entirely without user involvement.
 - **Web dashboard:** Single Next.js page at localhost:3000. Shows all tasks as cards in reverse chronological order. Each card: task name, 100-word summary, timestamp, status badge (Done / Needs Approval / Failed).
 - **Approval gate:** Tasks that involve external actions show a confirm button on the dashboard card. Nothing executes without explicit approval.
 
@@ -75,10 +75,10 @@ eva/
 │       ├── TaskCard.tsx
 │       └── StatusBadge.tsx
 ├── inngest/
-│   └── executeTask.ts        # Background job: Perplexity → Claude → Supabase update
+│   └── executeTask.ts        # Background job: OpenAI → Supabase update
 ├── lib/
 │   ├── supabase.ts
-│   └── gemini.ts             # web research + summarisation + task parsing
+│   └── openai.ts             # web research + summarisation + task parsing (gpt-4o-mini)
 └── CLAUDE.md
 ```
 
