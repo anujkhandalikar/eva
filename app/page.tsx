@@ -59,10 +59,9 @@ export default function Dashboard() {
     <div className="h-dvh overflow-hidden bg-[#121212] flex flex-col px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl w-full mx-auto flex flex-col h-full">
 
-        <header className="py-5 flex items-center justify-between shrink-0">
-          <h1 className="text-3xl font-semibold text-white tracking-tight">Eva</h1>
+        <div className="py-5 flex justify-center shrink-0">
           <ViewToggle view={view} onChange={setView} />
-        </header>
+        </div>
 
         <div className="flex-1 overflow-hidden pb-4">
           {loading ? (
