@@ -13,11 +13,11 @@ interface SwipeableTaskCardProps {
 }
 
 const statusColors: Record<Task['status'], string> = {
-  pending: 'bg-stone-100 text-stone-500 border border-stone-200',
-  running: 'bg-orange-50 text-orange-600 border border-orange-200 animate-pulse',
-  done: 'bg-orange-50 text-orange-700 border border-orange-200',
-  needs_approval: 'bg-amber-50 text-amber-700 border border-amber-200',
-  failed: 'bg-red-50 text-red-600 border border-red-200',
+  pending: 'bg-stone-100 text-stone-500 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700',
+  running: 'bg-orange-50 text-orange-600 border border-orange-200 animate-pulse dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
+  done: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
+  needs_approval: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60',
+  failed: 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/60',
 };
 
 const statusLabels: Record<Task['status'], string> = {
@@ -96,7 +96,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
       onDragEnd={handleDragEnd}
       className="cursor-grab active:cursor-grabbing"
     >
-      <div className="bg-white/80 backdrop-blur-2xl border border-[#EDE8E2] rounded-2xl w-full h-full flex flex-col shadow-[0_8px_40px_rgba(217,119,86,0.09),0_2px_8px_rgba(0,0,0,0.04)] relative overflow-hidden">
+      <div className="bg-white/80 dark:bg-stone-900/85 backdrop-blur-2xl border border-[#EDE8E2] dark:border-stone-700 rounded-2xl w-full h-full flex flex-col shadow-[0_8px_40px_rgba(217,119,86,0.09),0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.25)] relative overflow-hidden">
 
         {/* Delete overlay */}
         <motion.div
@@ -130,7 +130,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
           )}
 
           <p
-            className="font-semibold text-xl text-stone-900 leading-snug shrink-0"
+            className="font-semibold text-xl text-stone-900 dark:text-stone-100 leading-snug shrink-0"
             style={{ fontFamily: 'var(--font-grotesk)' }}
           >
             {task.input}
@@ -141,14 +141,14 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
             className={`flex-1 min-h-0 ${expanded ? 'overflow-y-auto' : 'overflow-hidden'}`}
           >
             {(task.result_summary || task.error_reason) ? (
-              <div className="text-stone-600 text-sm leading-relaxed">
+              <div className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
                 {task.error_reason ? (
-                  <span className="text-red-500 font-medium">Error: {task.error_reason}</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Error: {task.error_reason}</span>
                 ) : (
                   <ol className="flex flex-col gap-2.5">
                     {resultLines.map((line, i) => (
                       <li key={i} className="flex gap-2 leading-snug">
-                        <span className="text-stone-300 shrink-0 font-medium">{i + 1}.</span>
+                        <span className="text-stone-300 dark:text-stone-600 shrink-0 font-medium">{i + 1}.</span>
                         <span>{stripLinks(line.replace(/^[-–—]\s*/, ''))}</span>
                       </li>
                     ))}
@@ -156,7 +156,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
                 )}
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-stone-400 text-sm italic">
+              <div className="h-full flex items-center justify-center text-stone-400 dark:text-stone-500 text-sm italic">
                 {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
               </div>
             )}
@@ -165,7 +165,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
           {overflows && (
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded(prev => !prev); }}
-              className="shrink-0 text-xs text-stone-400 hover:text-orange-600 transition-colors text-left -mt-2"
+              className="shrink-0 text-xs text-stone-400 dark:text-stone-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left -mt-2"
             >
               {expanded ? 'Show less' : 'Read more'}
             </button>
@@ -177,7 +177,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="shrink-0 block text-center py-2 px-4 rounded-full border border-[#EDE8E2] text-stone-500 text-sm hover:border-orange-300 hover:text-orange-600 transition-colors bg-white/50"
+              className="shrink-0 block text-center py-2 px-4 rounded-full border border-[#EDE8E2] dark:border-stone-700 text-stone-500 dark:text-stone-400 text-sm hover:border-orange-300 hover:text-orange-600 dark:hover:border-orange-800 dark:hover:text-orange-400 transition-colors bg-white/50 dark:bg-stone-800/50"
             >
               link
             </a>

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Task } from './TaskCard';
 import SwipeableTaskCard from './SwipeableTaskCard';
-import { Layers } from 'lucide-react';
+import { Layers, Snowflake } from 'lucide-react';
 
 interface CardStackProps {
   tasks: Task[];
@@ -26,20 +26,6 @@ const ANGLES = [
     label: 'Key action items',
     sublabel: 'What should I actually do?',
     buildPrompt: (task: Task) => `My Question:\n${task.input}\n\nEva's Initial Analysis:\n${task.result_full || task.result_summary || 'No analysis available.'}\n\n---\n\nNow tell me: based on this analysis, what are the 3–5 most important things I should actually do or act on?`,
-  },
-  {
-    id: 'blindspots',
-    emoji: '⚠️',
-    label: 'What am I missing?',
-    sublabel: 'Blind spots, risks & overlooked angles',
-    buildPrompt: (task: Task) => `My Question:\n${task.input}\n\nEva's Initial Analysis:\n${task.result_full || task.result_summary || 'No analysis available.'}\n\n---\n\nNow tell me: what are the blind spots, risks, or things I might be underestimating or overlooking here?`,
-  },
-  {
-    id: 'deeper',
-    emoji: '🔍',
-    label: 'Go deeper',
-    sublabel: 'Full context, nuance & the big picture',
-    buildPrompt: (task: Task) => `My Question:\n${task.input}\n\nEva's Initial Analysis:\n${task.result_full || task.result_summary || 'No analysis available.'}\n\n---\n\nNow give me a comprehensive, deep-dive analysis. What's the full picture here?`,
   },
 ];
 
@@ -114,7 +100,7 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
 
   if (localQueue.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-stone-400 gap-4">
+      <div className="flex flex-col items-center justify-center py-20 text-stone-400 dark:text-stone-500 gap-4">
         <Layers size={48} className="opacity-20" />
         <p>No tasks left in the pile.</p>
       </div>
@@ -141,7 +127,7 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
         </AnimatePresence>
       </div>
 
-      <div className="shrink-0 h-28 flex items-start justify-center pt-3 text-sm text-stone-400 tabular-nums font-medium">
+      <div className="shrink-0 h-28 flex items-start justify-center pt-3 text-sm text-stone-400 dark:text-stone-500 tabular-nums font-medium">
         {currentPos}/{localQueue.length}
       </div>
 
@@ -152,17 +138,17 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
             onClick={handleRerunFront}
             disabled={rerunning || frontTask?.status === 'running'}
             style={{ position: 'fixed', bottom: 32, left: 32, zIndex: 9999 }}
-            className="w-14 h-14 rounded-full bg-white/80 backdrop-blur-sm border border-[#EDE8E2] shadow-lg text-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-14 h-14 rounded-full bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm border border-[#EDE8E2] dark:border-stone-700 shadow-lg text-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {rerunning ? '⏳' : '🔄'}
+            {rerunning ? '⏳' : '↺'}
           </button>
 
           {/* Tell me more — bottom right */}
           <div ref={dropdownRef} style={{ position: 'fixed', bottom: 32, right: 32, zIndex: 9999 }}>
             {dropdownOpen && (
-              <div className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl border border-[#EDE8E2] bg-white/95 backdrop-blur-2xl shadow-[0_8px_32px_rgba(217,119,86,0.10),0_2px_8px_rgba(0,0,0,0.05)] overflow-hidden">
-                <div className="px-3 py-2 border-b border-[#EDE8E2]">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">
+              <div className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl border border-[#EDE8E2] dark:border-stone-700 bg-white/95 dark:bg-stone-900/95 backdrop-blur-2xl shadow-[0_8px_32px_rgba(217,119,86,0.10),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.3)] overflow-hidden">
+                <div className="px-3 py-2 border-b border-[#EDE8E2] dark:border-stone-700">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500">
                     What do you want to explore?
                   </p>
                 </div>
@@ -171,31 +157,29 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
                     <button
                       key={angle.id}
                       onClick={() => handleAngle(angle.buildPrompt)}
-                      className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-orange-50 transition-colors group flex items-start gap-2.5"
+                      className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-orange-50 dark:hover:bg-stone-800 transition-colors group flex items-start gap-2.5"
                     >
                       <span className="text-base leading-none mt-0.5">{angle.emoji}</span>
                       <div>
-                        <p className="text-sm font-medium text-stone-700 group-hover:text-stone-900 transition-colors leading-snug">
+                        <p className="text-sm font-medium text-stone-700 dark:text-stone-300 group-hover:text-stone-900 dark:group-hover:text-stone-100 transition-colors leading-snug">
                           {angle.label}
                         </p>
-                        <p className="text-[11px] text-stone-400 group-hover:text-stone-500 transition-colors mt-0.5 leading-snug">
+                        <p className="text-[11px] text-stone-400 dark:text-stone-500 group-hover:text-stone-500 dark:group-hover:text-stone-400 transition-colors mt-0.5 leading-snug">
                           {angle.sublabel}
                         </p>
                       </div>
                     </button>
                   ))}
                 </div>
-                <div className="px-3 py-2 border-t border-[#EDE8E2]">
-                  <p className="text-[10px] text-stone-300">Opens Claude · Full analysis included</p>
-                </div>
               </div>
             )}
             <button
               onClick={() => frontTask && setDropdownOpen((o) => !o)}
               disabled={!frontTask}
-              className="w-14 h-14 rounded-full bg-white/80 backdrop-blur-sm border border-[#EDE8E2] shadow-lg text-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ lineHeight: 1 }}
+              className="w-14 h-14 rounded-full bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm border border-[#EDE8E2] dark:border-stone-700 shadow-lg text-4xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              ❄️
+              <Snowflake size={24} />
             </button>
           </div>
         </>,
