@@ -10,29 +10,12 @@ interface ViewToggleProps {
 
 export default function ViewToggle({ view, onChange }: ViewToggleProps) {
   return (
-    <div className="flex bg-[#1e1e1e] p-1 rounded-lg border border-[#2a2a2a]">
-      <button
-        onClick={() => onChange('cards')}
-        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          view === 'cards'
-            ? 'bg-[#333] text-white shadow-sm'
-            : 'text-gray-400 hover:text-white'
-        }`}
-      >
-        <Layers size={16} />
-        Cards
-      </button>
-      <button
-        onClick={() => onChange('list')}
-        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-          view === 'list'
-            ? 'bg-[#333] text-white shadow-sm'
-            : 'text-gray-400 hover:text-white'
-        }`}
-      >
-        <List size={16} />
-        List
-      </button>
-    </div>
+    <button
+      onClick={() => onChange(view === 'cards' ? 'list' : 'cards')}
+      className="w-9 h-9 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:text-stone-500 dark:hover:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+      aria-label={view === 'cards' ? 'Switch to list view' : 'Switch to card view'}
+    >
+      {view === 'cards' ? <Layers size={16} /> : <List size={16} />}
+    </button>
   );
 }

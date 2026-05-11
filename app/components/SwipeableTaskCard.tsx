@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { X, Check } from 'lucide-react';
 import { Task } from './TaskCard';
-import LLMDropdown from './LLMDropdown';
 
 interface SwipeableTaskCardProps {
   task: Task;
@@ -14,11 +13,11 @@ interface SwipeableTaskCardProps {
 }
 
 const statusColors: Record<Task['status'], string> = {
-  pending: 'bg-gray-500/20 text-gray-400',
-  running: 'bg-blue-500/20 text-blue-400 animate-pulse',
-  done: 'bg-green-500/20 text-green-400',
-  needs_approval: 'bg-yellow-500/20 text-yellow-400',
-  failed: 'bg-red-500/20 text-red-400',
+  pending: 'bg-stone-100 text-stone-500 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700',
+  running: 'bg-orange-50 text-orange-600 border border-orange-200 animate-pulse dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
+  done: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
+  needs_approval: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60',
+  failed: 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/60',
 };
 
 const statusLabels: Record<Task['status'], string> = {
@@ -29,32 +28,39 @@ const statusLabels: Record<Task['status'], string> = {
   failed: 'Failed',
 };
 
-function renderInsight(text: string): React.ReactNode {
-  const parts = text.split(/(\[.*?\]\(.*?\))/g);
-  return parts.map((part, i) => {
-    const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
-    if (match) {
-      return (
-        <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
-          {match[1]}
-        </a>
-      );
-    }
-    return part;
-  });
+function stripLinks(text: string): string {
+  return text.replace(/\[(.*?)\]\(.*?\)/g, '$1');
+}
+
+function extractFirstLink(text: string | null): { label: string; url: string } | null {
+  if (!text) return null;
+  const match = text.match(/\[(.*?)\]\((https?:\/\/[^)]+)\)/);
+  if (!match) return null;
+  return { label: match[1], url: match[2] };
 }
 
 export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: SwipeableTaskCardProps) {
   const [exitX, setExitX] = useState<number | null>(null);
-  const [rerunning, setRerunning] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
   const isFront = index === 0;
+
+  const resultsWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setExpanded(false);
+    const el = resultsWrapperRef.current;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      setOverflows(el.scrollHeight > el.clientHeight);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [task.result_summary, task.error_reason]);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
-
-  // Color overlays — reactive to drag position
-  const deleteOpacity = useTransform(x, [-150, -20, 0], [0.85, 0, 0]);
-  const keepOpacity = useTransform(x, [0, 20, 150], [0, 0, 0.85]);
+  const deleteOpacity = useTransform(x, [-150, -20, 0], [0.9, 0, 0]);
+  const keepOpacity = useTransform(x, [0, 20, 150], [0, 0, 0.9]);
 
   const handleDragEnd = (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.x < -100) {
@@ -66,22 +72,9 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
     }
   };
 
-  async function handleRerun(e: React.MouseEvent) {
-    e.stopPropagation();
-    setRerunning(true);
-    try {
-      await fetch(`/api/tasks/${task.id}/rerun`, { method: 'POST' });
-    } finally {
-      setRerunning(false);
-    }
-  }
-
-  const date = new Date(task.created_at).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const resultLines = (task.result_summary ?? '').split('\n').filter(line => line.trim());
+  const firstLink =
+    extractFirstLink(task.result_summary) ?? extractFirstLink(task.result_full);
 
   return (
     <motion.div
@@ -103,71 +96,93 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
       onDragEnd={handleDragEnd}
       className="cursor-grab active:cursor-grabbing"
     >
-      <div className="bg-[#1e1e1e] border border-[#2a2a2a] rounded-2xl w-full h-full flex flex-col shadow-2xl relative overflow-hidden">
+      <div className="bg-white/80 dark:bg-stone-900/85 backdrop-blur-2xl border border-[#EDE8E2] dark:border-stone-700 rounded-2xl w-full h-full flex flex-col shadow-[0_8px_40px_rgba(217,119,86,0.09),0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.25)] relative overflow-hidden">
 
-        {/* Delete overlay (swipe left) */}
+        {/* Delete overlay */}
         <motion.div
           style={{ opacity: deleteOpacity }}
-          className="absolute inset-0 bg-red-600/40 z-20 flex items-center justify-center pointer-events-none rounded-2xl"
+          className="absolute inset-0 bg-red-400/15 backdrop-blur-sm z-20 flex items-center justify-center pointer-events-none rounded-2xl"
         >
-          <X className="w-24 h-24 text-white drop-shadow-lg" strokeWidth={3} />
+          <div className="bg-red-500/90 rounded-full p-5 shadow-lg">
+            <X className="w-12 h-12 text-white" strokeWidth={2.5} />
+          </div>
         </motion.div>
 
-        {/* Keep overlay (swipe right) */}
+        {/* Keep overlay */}
         <motion.div
           style={{ opacity: keepOpacity }}
-          className="absolute inset-0 bg-green-500/40 z-20 flex items-center justify-center pointer-events-none rounded-2xl"
+          className="absolute inset-0 bg-orange-300/15 backdrop-blur-sm z-20 flex items-center justify-center pointer-events-none rounded-2xl"
         >
-          <Check className="w-24 h-24 text-white drop-shadow-lg" strokeWidth={3} />
+          <div className="rounded-full p-5 shadow-lg" style={{ backgroundColor: '#D97756' }}>
+            <Check className="w-12 h-12 text-white" strokeWidth={2.5} />
+          </div>
         </motion.div>
 
         {/* Card content */}
-        <div className="flex flex-col gap-4 p-6 h-full z-10 relative">
-          <div className="flex justify-between items-start gap-4">
-            <p className="font-medium text-xl leading-snug flex-1 text-white line-clamp-4">{task.input}</p>
-            <span
-              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${statusColors[task.status]}`}
-            >
-              {statusLabels[task.status]}
-            </span>
-          </div>
+        <div className="flex flex-col h-full z-10 relative p-6 gap-4">
 
-          <div className="flex-1 overflow-y-auto pr-2">
+          {task.status !== 'done' && (
+            <div className="flex justify-end shrink-0">
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${statusColors[task.status]}`}>
+                {statusLabels[task.status]}
+              </span>
+            </div>
+          )}
+
+          <p
+            className="font-semibold text-xl text-stone-900 dark:text-stone-100 leading-snug shrink-0"
+            style={{ fontFamily: 'var(--font-grotesk)' }}
+          >
+            {task.input}
+          </p>
+
+          <div
+            ref={resultsWrapperRef}
+            className={`flex-1 min-h-0 ${expanded ? 'overflow-y-auto' : 'overflow-hidden'}`}
+          >
             {(task.result_summary || task.error_reason) ? (
-              <div className="bg-[#151515] border border-[#222] rounded-xl p-4 text-gray-300 text-sm leading-relaxed">
+              <div className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
                 {task.error_reason ? (
-                  <span className="text-red-400 font-medium">Error: {task.error_reason}</span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">Error: {task.error_reason}</span>
                 ) : (
-                  <ol className="flex flex-col gap-3">
-                    {(task.result_summary ?? '').split('\n').filter(line => line.trim()).map((line, i) => (
+                  <ol className="flex flex-col gap-2.5">
+                    {resultLines.map((line, i) => (
                       <li key={i} className="flex gap-2 leading-snug">
-                        <span className="text-gray-500 shrink-0 font-medium mt-0.5">{i + 1}.</span>
-                        <span>{renderInsight(line.replace(/^[-–—]\s*/, ''))}</span>
+                        <span className="text-stone-300 dark:text-stone-600 shrink-0 font-medium">{i + 1}.</span>
+                        <span>{stripLinks(line.replace(/^[-–—]\s*/, ''))}</span>
                       </li>
                     ))}
                   </ol>
                 )}
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-gray-500 text-sm italic">
+              <div className="h-full flex items-center justify-center text-stone-400 dark:text-stone-500 text-sm italic">
                 {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
               </div>
             )}
           </div>
 
-          <div className="flex justify-between items-center pt-4 border-t border-[#2a2a2a]">
-            <div className="text-xs text-gray-500">{date}</div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRerun}
-                disabled={rerunning || task.status === 'running'}
-                className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest whitespace-nowrap bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {rerunning ? '...' : '↺ Rerun'}
-              </button>
-              <LLMDropdown task={task} />
-            </div>
-          </div>
+          {overflows && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(prev => !prev); }}
+              className="shrink-0 text-xs text-stone-400 dark:text-stone-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left -mt-2"
+            >
+              {expanded ? 'Show less' : 'Read more'}
+            </button>
+          )}
+
+          {firstLink && (
+            <a
+              href={firstLink.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 block text-center py-2 px-4 rounded-full border border-[#EDE8E2] dark:border-stone-700 text-stone-500 dark:text-stone-400 text-sm hover:border-orange-300 hover:text-orange-600 dark:hover:border-orange-800 dark:hover:text-orange-400 transition-colors bg-white/50 dark:bg-stone-800/50"
+            >
+              link
+            </a>
+          )}
+
         </div>
       </div>
     </motion.div>
