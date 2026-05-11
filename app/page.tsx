@@ -56,7 +56,7 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div className="h-dvh overflow-hidden bg-[#121212] flex flex-col px-4 sm:px-6 lg:px-8">
+    <div className="h-dvh overflow-hidden flex flex-col px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl w-full mx-auto flex flex-col h-full">
 
         <div className="py-5 flex justify-center shrink-0">
@@ -65,16 +65,16 @@ export default function Dashboard() {
 
         <div className="flex-1 overflow-hidden pb-4">
           {loading ? (
-            <div className="text-gray-500 animate-pulse">Loading tasks...</div>
+            <div className="text-stone-400 animate-pulse text-sm">Loading tasks...</div>
           ) : tasks.length === 0 ? (
-            <div className="text-gray-500 text-center p-8 border border-dashed border-[#2a2a2a] rounded-xl mt-12">
-              No tasks yet. Double tap <kbd className="px-2 py-1 bg-[#222] rounded mx-1 text-gray-300">Control</kbd> to capture one.
+            <div className="text-stone-400 text-center p-8 border border-dashed border-[#EDE8E2] rounded-2xl mt-12 bg-white/40 backdrop-blur-sm">
+              No tasks yet. Double tap <kbd className="px-2 py-1 bg-white/80 border border-[#EDE8E2] rounded-lg mx-1 text-stone-600 text-xs shadow-sm">Control</kbd> to capture one.
             </div>
           ) : view === 'cards' ? (
             <CardStack tasks={tasks} onDeleteTask={handleDeleteTask} />
           ) : (
             <div className="h-full overflow-y-auto flex flex-col">
-              <div className="text-sm font-medium text-gray-500 mb-6 flex items-center justify-between">
+              <div className="text-sm font-medium text-stone-400 mb-6 flex items-center justify-between">
                 <span>Current Tasks</span>
                 <span>Showing {tasks.length} tasks</span>
               </div>
