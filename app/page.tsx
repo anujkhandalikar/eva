@@ -79,7 +79,6 @@ export default function Dashboard() {
       <div className="max-w-3xl w-full mx-auto flex flex-col h-full">
 
         <div className="py-5 flex items-center justify-between shrink-0">
-          <div className="w-9" />
           <ViewToggle view={view} onChange={setView} />
           <button
             onClick={toggleTheme}
