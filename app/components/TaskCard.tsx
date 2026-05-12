@@ -102,7 +102,7 @@ export default function TaskCard({ task }: { task: Task }) {
           rel="noopener noreferrer"
           className="block text-center py-2 px-4 rounded-full border border-[#EDE8E2] dark:border-stone-700 text-stone-500 dark:text-stone-400 text-sm hover:border-orange-300 hover:text-orange-600 dark:hover:border-orange-800 dark:hover:text-orange-400 transition-colors bg-white/50 dark:bg-stone-800/50"
         >
-          link
+          {(() => { try { return new URL(firstLink.url).hostname.replace(/^www\./, ''); } catch { return 'link'; } })()}
         </a>
       )}
 
