@@ -2,8 +2,19 @@
 
 import React, { useState } from 'react';
 import LLMDropdown from './LLMDropdown';
+import BlinkitCartPreview from './BlinkitCartPreview';
+import OtpInput from './OtpInput';
 
-type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed';
+type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed' | 'needs_otp';
+
+export type CartItem = {
+  requested: string;
+  name: string;
+  product_id: string;
+  quantity: number;
+  unit_price: string;
+  not_found?: boolean;
+};
 
 export type Task = {
   id: string;
@@ -15,6 +26,8 @@ export type Task = {
   error_reason: string | null;
   requires_approval: boolean;
   approved: boolean;
+  task_type?: 'research' | 'blinkit_order';
+  proposed_cart?: CartItem[] | null;
 };
 
 const statusColors: Record<TaskStatus, string> = {
@@ -23,6 +36,7 @@ const statusColors: Record<TaskStatus, string> = {
   done: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
   needs_approval: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60',
   failed: 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/60',
+  needs_otp: 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/60',
 };
 
 const statusLabels: Record<TaskStatus, string> = {
@@ -31,6 +45,7 @@ const statusLabels: Record<TaskStatus, string> = {
   done: 'Done',
   needs_approval: 'Needs Approval',
   failed: 'Failed',
+  needs_otp: 'Waiting for OTP',
 };
 
 function stripLinks(text: string): string {
@@ -95,7 +110,15 @@ export default function TaskCard({ task }: { task: Task }) {
         </div>
       )}
 
-      {firstLink && (
+      {task.status === 'needs_otp' && (
+        <OtpInput taskId={task.id} />
+      )}
+
+      {task.task_type === 'blinkit_order' && task.proposed_cart && task.status === 'needs_approval' && (
+        <BlinkitCartPreview cart={task.proposed_cart} taskId={task.id} />
+      )}
+
+      {firstLink && task.task_type !== 'blinkit_order' && (
         <a
           href={firstLink.url}
           target="_blank"

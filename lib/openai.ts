@@ -6,6 +6,43 @@ const client = new OpenAI({
   apiKey: apiKey || "dummy-key-for-build",
 });
 
+export type OrderItem = { name: string; quantity: number };
+export type TaskIntent =
+  | { type: "research" }
+  | { type: "blinkit_order"; items: OrderItem[] };
+
+export async function detectIntent(input: string): Promise<TaskIntent> {
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `You classify user requests. If the request is asking to order, buy, or get grocery/food/household items delivered (e.g. from Blinkit, Zepto, Swiggy Instamart), respond with:
+{"type":"blinkit_order","items":[{"name":"item name","quantity":1}]}
+
+For everything else respond with:
+{"type":"research"}
+
+Rules:
+- quantity defaults to 1 if not specified
+- Be generous: "get me some Diet Coke" = blinkit_order
+- Only respond with valid JSON, no other text`,
+      },
+      { role: "user", content: input },
+    ],
+  });
+
+  const text = response.choices[0]?.message?.content ?? '{"type":"research"}';
+  try {
+    return JSON.parse(text) as TaskIntent;
+  } catch {
+    return { type: "research" };
+  }
+}
+
 export type TaskResult = {
   summary: string;
   full_result: string;

@@ -1,12 +1,8 @@
 import { Inngest } from "inngest";
 
-type Events = {
-  "task/created": {
-    data: {
-      id: string;
-      input: string;
-    };
-  };
-};
-
 export const inngest = new Inngest({ id: "eva" });
+
+// Event payload types — used for type safety when calling inngest.send()
+export type TaskCreatedEvent = { id: string; input: string };
+export type BlinkitOtpSubmittedEvent = { taskId: string; otp: string };
+export type BlinkitOrderApprovedEvent = { taskId: string };
