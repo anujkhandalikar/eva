@@ -7,12 +7,56 @@ const client = new OpenAI({
 });
 
 export type OrderItem = { name: string; quantity: number };
+
+export type CalendarListAction = {
+  type: "list";
+  timeMin: string;
+  timeMax: string;
+  query?: string;
+};
+
+export type CalendarCreateAction = {
+  type: "create";
+  summary: string;
+  startTime: string;
+  endTime: string;
+  description?: string;
+  location?: string;
+  attendees?: string[];
+};
+
+export type CalendarUpdateAction = {
+  type: "update";
+  eventId: string;
+  eventSummary: string;
+  summary?: string;
+  startTime?: string;
+  endTime?: string;
+  description?: string;
+};
+
+export type CalendarDeleteAction = {
+  type: "delete";
+  eventId: string;
+  eventSummary: string;
+};
+
+export type CalendarAction =
+  | CalendarListAction
+  | CalendarCreateAction
+  | CalendarUpdateAction
+  | CalendarDeleteAction;
+
 export type TaskIntent =
   | { type: "research" }
-  | { type: "blinkit_order"; items: OrderItem[] };
+  | { type: "blinkit_order"; items: OrderItem[] }
+  | { type: "calendar"; action: CalendarAction };
 
 export async function detectIntent(input: string): Promise<TaskIntent> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const nowISO = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
 
   const response = await client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -20,15 +64,34 @@ export async function detectIntent(input: string): Promise<TaskIntent> {
     messages: [
       {
         role: "system",
-        content: `You classify user requests. If the request is asking to order, buy, or get grocery/food/household items delivered (e.g. from Blinkit, Zepto, Swiggy Instamart), respond with:
+        content: `You classify user requests. Current time: ${nowISO} (Asia/Kolkata, UTC+5:30). All calendar times must use IST (UTC+5:30) offset.
+
+CALENDAR requests: anything about viewing, adding, editing, rescheduling, cancelling, or deleting calendar events.
+
+For CALENDAR LIST (viewing/checking schedule), respond:
+{"type":"calendar","action":{"type":"list","timeMin":"<ISO datetime>","timeMax":"<ISO datetime>","query":"optional search term"}}
+
+For CALENDAR CREATE (adding/scheduling), respond:
+{"type":"calendar","action":{"type":"create","summary":"event title","startTime":"<ISO datetime>","endTime":"<ISO datetime>","description":"optional","location":"optional","attendees":["email@example.com"]}}
+
+For CALENDAR UPDATE (rescheduling/editing an existing event), respond:
+{"type":"calendar","action":{"type":"update","eventId":"","eventSummary":"name of event to update","summary":"new title if changing","startTime":"<ISO datetime if changing>","endTime":"<ISO datetime if changing>"}}
+
+For CALENDAR DELETE (cancelling/removing), respond:
+{"type":"calendar","action":{"type":"delete","eventId":"","eventSummary":"name of event to delete"}}
+
+BLINKIT ORDER requests: order, buy, or get grocery/food/household items delivered.
 {"type":"blinkit_order","items":[{"name":"item name","quantity":1}]}
 
-For everything else respond with:
+Everything else:
 {"type":"research"}
 
 Rules:
-- quantity defaults to 1 if not specified
-- Be generous: "get me some Diet Coke" = blinkit_order
+- For calendar times, use full ISO 8601 format with timezone offset (e.g. 2026-05-14T14:00:00+05:30)
+- "tomorrow" means the next calendar day from current time
+- Default event duration: 1 hour if not specified
+- For update/delete, set eventId to "" — Eva will search for the event by eventSummary at execution time
+- For blinkit: quantity defaults to 1 if not specified
 - Only respond with valid JSON, no other text`,
       },
       { role: "user", content: input },

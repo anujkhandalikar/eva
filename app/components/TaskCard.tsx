@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import LLMDropdown from './LLMDropdown';
 import BlinkitCartPreview from './BlinkitCartPreview';
 import OtpInput from './OtpInput';
+import CalendarActionPreview from './CalendarActionPreview';
+import type { CalendarAction } from '@/lib/openai';
 
 type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed' | 'needs_otp';
 
@@ -26,8 +28,10 @@ export type Task = {
   error_reason: string | null;
   requires_approval: boolean;
   approved: boolean;
-  task_type?: 'research' | 'blinkit_order';
+  task_type?: 'research' | 'blinkit_order' | 'calendar';
   proposed_cart?: CartItem[] | null;
+  calendar_action?: CalendarAction | null;
+  calendar_event_id?: string | null;
 };
 
 const statusColors: Record<TaskStatus, string> = {
@@ -69,8 +73,13 @@ export default function TaskCard({ task }: { task: Task }) {
     minute: '2-digit',
   });
 
+  const isCalendar = task.task_type === 'calendar';
+  const isBlinkit = task.task_type === 'blinkit_order';
+
   const firstLink =
-    extractFirstLink(task.result_summary) ?? extractFirstLink(task.result_full);
+    (!isCalendar && !isBlinkit)
+      ? (extractFirstLink(task.result_summary) ?? extractFirstLink(task.result_full))
+      : null;
 
   async function handleRerun() {
     setRerunning(true);
@@ -114,11 +123,15 @@ export default function TaskCard({ task }: { task: Task }) {
         <OtpInput taskId={task.id} />
       )}
 
-      {task.task_type === 'blinkit_order' && task.proposed_cart && task.status === 'needs_approval' && (
+      {isBlinkit && task.proposed_cart && task.status === 'needs_approval' && (
         <BlinkitCartPreview cart={task.proposed_cart} taskId={task.id} />
       )}
 
-      {firstLink && task.task_type !== 'blinkit_order' && (
+      {isCalendar && task.calendar_action && task.status === 'needs_approval' && (
+        <CalendarActionPreview action={task.calendar_action} taskId={task.id} />
+      )}
+
+      {firstLink && (
         <a
           href={firstLink.url}
           target="_blank"

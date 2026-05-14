@@ -1,12 +1,25 @@
 import { inngest } from "./client";
 import { supabase } from "@/lib/supabase";
-import { processTask } from "@/lib/openai";
+import { detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
+import { listEvents, createEvent } from "@/lib/googleCalendar";
 
-function detectOrderIntent(input: string): boolean {
-  const keywords = ["order", "buy", "get me", "purchase"];
-  return keywords.some((k) => input.toLowerCase().includes(k));
+function formatEventList(events: Awaited<ReturnType<typeof listEvents>>): string {
+  if (events.length === 0) return "No events found in that time range.";
+  return events
+    .map((e) => {
+      const start = new Date(e.start).toLocaleString("en-IN", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata",
+      });
+      return `- ${e.summary} — ${start}${e.location ? ` @ ${e.location}` : ""}`;
+    })
+    .join("\n");
 }
 
 export const executeTask = inngest.createFunction(
@@ -27,8 +40,115 @@ export const executeTask = inngest.createFunction(
       if (error) throw error;
     });
 
-    if (!detectOrderIntent(input)) {
-      // --- Research path (unchanged) ---
+    // Detect intent for all three types
+    const intent = await step.run("detect-intent", async () => {
+      return await detectIntent(input);
+    });
+
+    // --- Calendar path ---
+    if (intent.type === "calendar") {
+      const { action } = intent;
+
+      try {
+        if (action.type === "list") {
+          // Read-only — execute immediately
+          await step.run("set-task-type-calendar", async () => {
+            const { error } = await supabase
+              .from("tasks")
+              .update({ task_type: "calendar", calendar_action: action })
+              .eq("id", id);
+            if (error) throw error;
+          });
+
+          const events = await step.run("list-calendar-events", async () => {
+            return await listEvents({
+              timeMin: action.timeMin,
+              timeMax: action.timeMax,
+              query: action.query,
+            });
+          });
+
+          await step.run("update-status-done-calendar", async () => {
+            const summary = formatEventList(events);
+            const { error } = await supabase
+              .from("tasks")
+              .update({ status: "done", result_summary: summary })
+              .eq("id", id);
+            if (error) throw error;
+          });
+        } else if (action.type === "create") {
+          // Create — execute immediately, no approval
+          await step.run("set-task-type-calendar", async () => {
+            const { error } = await supabase
+              .from("tasks")
+              .update({ task_type: "calendar", calendar_action: action })
+              .eq("id", id);
+            if (error) throw error;
+          });
+
+          const created = await step.run("create-calendar-event", async () => {
+            return await createEvent({
+              summary: action.summary,
+              startTime: action.startTime,
+              endTime: action.endTime,
+              description: action.description,
+              location: action.location,
+              attendees: action.attendees,
+            });
+          });
+
+          await step.run("update-status-done-created", async () => {
+            const start = new Date(created.start).toLocaleString("en-IN", {
+              weekday: "short", month: "short", day: "numeric",
+              hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata",
+            });
+            const { error } = await supabase
+              .from("tasks")
+              .update({
+                status: "done",
+                result_summary: `Created: "${created.summary}" on ${start}`,
+                calendar_event_id: created.id,
+              })
+              .eq("id", id);
+            if (error) throw error;
+          });
+        } else {
+          // update/delete — needs approval. Single update with all fields so
+          // real-time payload always includes calendar_action.
+          const proposedSummary = action.type === "update"
+            ? `Update event: "${action.eventSummary}"`
+            : `Delete event: "${action.eventSummary}"`;
+
+          await step.run("update-needs-approval-calendar", async () => {
+            const { error } = await supabase
+              .from("tasks")
+              .update({
+                task_type: "calendar",
+                calendar_action: action,
+                status: "needs_approval",
+                requires_approval: true,
+                result_summary: proposedSummary,
+              })
+              .eq("id", id);
+            if (error) throw error;
+          });
+        }
+
+        return { success: true };
+      } catch (error: unknown) {
+        await step.run("update-status-failed-calendar", async () => {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          await supabase
+            .from("tasks")
+            .update({ status: "failed", error_reason: message })
+            .eq("id", id);
+        });
+        throw error;
+      }
+    }
+
+    // --- Research path ---
+    if (intent.type === "research") {
       try {
         const result = await step.run("process-with-openai", async () => {
           return await processTask(input);
@@ -94,16 +214,13 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
           const parsed = JSON.parse(text) as { items: { name: string; quantity: number }[] };
           return parsed.items;
         } catch {
-          // Fallback: treat whole input as one item
           return [{ name: input, quantity: parseQuantity(input) }];
         }
       });
 
-      // Resolve items: SKU map first, MCP search as fallback
       const unknownItems = parsedItems.filter((item) => !lookupSKU(item.name));
       const needsMCP = unknownItems.length > 0;
 
-      // Handle login only if we need to search via MCP
       if (needsMCP) {
         const loginStatus = await step.run("blinkit-check-login", async () => {
           const mcp = await createBlinkitClient();
@@ -163,7 +280,6 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
         }
       }
 
-      // Build proposed cart
       const proposedCart = await step.run("build-cart", async () => {
         const cart: CartItem[] = [];
         const mcp = needsMCP ? await createBlinkitClient() : null;
@@ -173,7 +289,6 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
             const sku = lookupSKU(item.name);
 
             if (sku) {
-              // Exact match from SKU map — no MCP needed
               cart.push({
                 requested: item.name,
                 name: sku.name,
@@ -184,7 +299,6 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
               continue;
             }
 
-            // Fall back to MCP search
             if (!mcp) {
               cart.push({
                 requested: item.name,
@@ -264,7 +378,6 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
         return cart;
       });
 
-      // Save cart and set needs_approval
       await step.run("update-needs-approval", async () => {
         const foundItems = proposedCart.filter((i) => !i.not_found);
         const summary =

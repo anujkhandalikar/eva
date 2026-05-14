@@ -16,7 +16,11 @@
       "Bash(lsof -ti:3000,8288)",
       "Bash(kill 11976 12299 11959)",
       "Bash(echo \"next pid: $!\")",
-      "Bash(echo \"inngest pid: $!\")"
+      "Bash(echo \"inngest pid: $!\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('mcpServers', {}\\), indent=2\\)\\)\")",
+      "WebFetch(domain:developers.google.com)",
+      "mcp__claude_ai_Google_Calendar__list_calendars",
+      "Bash(echo \"Next PID: $!\")"
     ],
     "additionalDirectories": [
       "/Users/anujk/eva/app/api/tasks/[id]",
