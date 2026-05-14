@@ -20,7 +20,10 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('mcpServers', {}\\), indent=2\\)\\)\")",
       "WebFetch(domain:developers.google.com)",
       "mcp__claude_ai_Google_Calendar__list_calendars",
-      "Bash(echo \"Next PID: $!\")"
+      "Bash(echo \"Next PID: $!\")",
+      "Bash(pkill -f \"electron .\")",
+      "Bash(pkill -9 -f \"electron\")",
+      "Bash(npm start *)"
     ],
     "additionalDirectories": [
       "/Users/anujk/eva/app/api/tasks/[id]",

@@ -91,7 +91,6 @@ app.on('will-quit', () => {
 
 ipcMain.on('submit-task', async (event, task) => {
   console.log('Task captured:', task);
-  mainWindow?.hide();
   
   try {
     const response = await fetch('http://localhost:3000/api/tasks', {

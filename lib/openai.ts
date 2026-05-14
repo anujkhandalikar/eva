@@ -55,8 +55,9 @@ export type TaskIntent =
 export async function detectIntent(input: string): Promise<TaskIntent> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 
-  const now = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-  const nowISO = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
+  const nowDate = new Date();
+  const nowISO = nowDate.toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
+  const dayName = nowDate.toLocaleDateString("en-US", { timeZone: "Asia/Kolkata", weekday: "long" });
 
   const response = await client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -64,7 +65,7 @@ export async function detectIntent(input: string): Promise<TaskIntent> {
     messages: [
       {
         role: "system",
-        content: `You classify user requests. Current time: ${nowISO} (Asia/Kolkata, UTC+5:30). All calendar times must use IST (UTC+5:30) offset.
+        content: `You classify user requests. Current time: ${nowISO} (${dayName}, Asia/Kolkata, UTC+5:30). All calendar times must use IST (UTC+5:30) offset.
 
 CALENDAR requests: anything about viewing, adding, editing, rescheduling, cancelling, or deleting calendar events.
 
