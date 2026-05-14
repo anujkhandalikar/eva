@@ -14,6 +14,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         error_reason: null,
         requires_approval: false,
         approved: false,
+        task_type: 'research',
+        proposed_cart: null,
       })
       .eq('id', id)
       .select()

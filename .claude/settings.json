@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s 'https://rqqzybcqfnetskfqoqgl.supabase.co/rest/v1/tasks?select=status&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcXp5YmNxZm5ldHNrZnFvcWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDA0NzEsImV4cCI6MjA5MzU3NjQ3MX0.ugobOILRqKoq2A85Lz6sXe1oUbgxbTvOn3WmnOR52Z4')",
+      "Bash(curl -s 'https://rqqzybcqfnetskfqoqgl.supabase.co/rest/v1/tasks?select=id&status=eq.needs_otp&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcXp5YmNxZm5ldHNrZnFvcWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDA0NzEsImV4cCI6MjA5MzU3NjQ3MX0.ugobOILRqKoq2A85Lz6sXe1oUbgxbTvOn3WmnOR52Z4')",
+      "Bash(curl -s https://rqqzybcqfnetskfqoqgl.supabase.co/rest/v1/ -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcXp5YmNxZm5ldHNrZnFvcWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDA0NzEsImV4cCI6MjA5MzU3NjQ3MX0.ugobOILRqKoq2A85Lz6sXe1oUbgxbTvOn3WmnOR52Z4')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); t=d.get\\('definitions',{}\\).get\\('tasks',{}\\); print\\(json.dumps\\(t.get\\('properties',{}\\).get\\('status',{}\\), indent=2\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); t=d.get\\('definitions',{}\\).get\\('tasks',{}\\); print\\(json.dumps\\(t, indent=2\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(list\\(d.keys\\(\\)\\)[:10]\\)\")",
+      "Bash(curl -s 'https://rqqzybcqfnetskfqoqgl.supabase.co/rest/v1/tasks?select=task_type,proposed_cart&limit=1' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJxcXp5YmNxZm5ldHNrZnFvcWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDA0NzEsImV4cCI6MjA5MzU3NjQ3MX0.ugobOILRqKoq2A85Lz6sXe1oUbgxbTvOn3WmnOR52Z4')",
+      "Bash(node -e \"const {Inngest} = require\\('inngest'\\); console.log\\('ok'\\)\")",
+      "Bash(pkill -f \"uv run main.py\")",
+      "Bash(awk '{print $2, $11, $12, $13}')",
+      "Bash(awk '{print $2, $11}')",
+      "Bash(SERVE_HTTPS=true HEADLESS=false uv run main.py)",
+      "Bash(lsof -ti:3000,8288)",
+      "Bash(kill 11976 12299 11959)",
+      "Bash(echo \"next pid: $!\")",
+      "Bash(echo \"inngest pid: $!\")"
+    ],
+    "additionalDirectories": [
+      "/Users/anujk/eva/app/api/tasks/[id]",
+      "/Users/anujk/blinkit-mcp/src/order/services",
+      "/Users/anujk/blinkit-mcp/src"
+    ]
+  }
+}

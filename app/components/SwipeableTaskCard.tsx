@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { X, Check } from 'lucide-react';
 import { Task } from './TaskCard';
+import BlinkitCartPreview from './BlinkitCartPreview';
+import OtpInput from './OtpInput';
 
 interface SwipeableTaskCardProps {
   task: Task;
@@ -18,6 +20,7 @@ const statusColors: Record<Task['status'], string> = {
   done: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
   needs_approval: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60',
   failed: 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/60',
+  needs_otp: 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/60',
 };
 
 const statusLabels: Record<Task['status'], string> = {
@@ -26,6 +29,7 @@ const statusLabels: Record<Task['status'], string> = {
   done: 'Done',
   needs_approval: 'Needs Approval',
   failed: 'Failed',
+  needs_otp: 'Waiting for OTP',
 };
 
 function stripLinks(text: string): string {
@@ -171,7 +175,19 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
             </button>
           )}
 
-          {firstLink && (
+          {task.status === 'needs_otp' && (
+            <div className="shrink-0">
+              <OtpInput taskId={task.id} />
+            </div>
+          )}
+
+          {task.task_type === 'blinkit_order' && task.proposed_cart && task.status === 'needs_approval' && (
+            <div className="shrink-0">
+              <BlinkitCartPreview cart={task.proposed_cart} taskId={task.id} />
+            </div>
+          )}
+
+          {firstLink && task.task_type !== 'blinkit_order' && (
             <a
               href={firstLink.url}
               target="_blank"
