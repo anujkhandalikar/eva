@@ -23,30 +23,14 @@ const ANGLES: Angle[] = [
     emoji: '🎯',
     label: 'Why it matters to me',
     sublabel: 'Personal relevance & implications',
-    buildPrompt: (task) => `My Question:
-${task.input}
-
-Eva's Initial Analysis:
-${task.result_full || task.result_summary || 'No analysis available.'}
-
----
-
-Now tell me: why is this specifically relevant or important to me right now? What are the real-world implications I should be thinking about? Connect this directly to how it affects my decisions or priorities.`,
+    buildPrompt: (task) => `My Question:\n${task.input}\n\nEva's Initial Analysis:\n${task.result_full || task.result_summary || 'No analysis available.'}\n\n---\n\nNow tell me: why is this specifically relevant or important to me right now? What are the real-world implications I should be thinking about? Connect this directly to how it affects my decisions or priorities.`,
   },
   {
     id: 'actions',
     emoji: '📋',
     label: 'Key action items',
     sublabel: 'What should I actually do?',
-    buildPrompt: (task) => `My Question:
-${task.input}
-
-Eva's Initial Analysis:
-${task.result_full || task.result_summary || 'No analysis available.'}
-
----
-
-Now tell me: based on this analysis, what are the 3–5 most important things I should actually do or act on? Be specific, prioritized, and practical. Focus on what moves the needle most.`,
+    buildPrompt: (task) => `My Question:\n${task.input}\n\nEva's Initial Analysis:\n${task.result_full || task.result_summary || 'No analysis available.'}\n\n---\n\nNow tell me: based on this analysis, what are the 3–5 most important things I should actually do or act on? Be specific, prioritized, and practical. Focus on what moves the needle most.`,
   },
 ];
 
@@ -68,8 +52,7 @@ export default function LLMDropdown({ task, compact = false }: LLMDropdownProps)
     if (!task) return;
     const prompt = angle.buildPrompt(task);
     navigator.clipboard.writeText(prompt).catch(() => {});
-    const url = `https://claude.ai/new?q=${encodeURIComponent(prompt)}`;
-    window.open(url, '_blank');
+    window.open(`https://claude.ai/new?q=${encodeURIComponent(prompt)}`, '_blank');
     setOpen(false);
   };
 
@@ -81,22 +64,28 @@ export default function LLMDropdown({ task, compact = false }: LLMDropdownProps)
           if (task) setOpen((prev) => !prev);
         }}
         disabled={!task}
-        className={compact
-          ? 'w-9 h-9 rounded-full bg-stone-100 dark:bg-stone-800 hover:bg-orange-50 dark:hover:bg-orange-950/40 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed transition-colors'
-          : 'w-14 h-14 rounded-full bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm border border-[#EDE8E2] dark:border-stone-700 shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed'
-        }
+        className="w-8 h-8 rounded-full flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.09)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; }}
       >
-        <Snowflake size={compact ? 16 : 22} />
+        <Snowflake size={compact ? 14 : 22} />
       </button>
 
       {open && (
         <div
-          className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl border border-[#EDE8E2] dark:border-stone-700 bg-white/95 dark:bg-stone-900/95 backdrop-blur-2xl shadow-[0_8px_32px_rgba(217,119,86,0.10),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.3)] overflow-hidden"
+          className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl overflow-hidden"
+          style={{
+            background: 'rgba(20,20,20,0.95)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-3 py-2 border-b border-[#EDE8E2] dark:border-stone-700">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500">
-              What do you want to explore?
+          <div className="px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>
+              Explore
             </p>
           </div>
 
@@ -105,21 +94,22 @@ export default function LLMDropdown({ task, compact = false }: LLMDropdownProps)
               <button
                 key={angle.id}
                 onClick={() => handleAngle(angle)}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-orange-50 dark:hover:bg-stone-800 transition-colors group flex items-start gap-2.5"
+                className="w-full text-left px-3 py-2.5 rounded-xl transition-colors flex items-start gap-2.5"
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
               >
                 <span className="text-base leading-none mt-0.5">{angle.emoji}</span>
                 <div>
-                  <p className="text-sm font-medium text-stone-700 dark:text-stone-300 group-hover:text-stone-900 dark:group-hover:text-stone-100 transition-colors leading-snug">
+                  <p className="text-sm font-medium leading-snug" style={{ color: 'rgba(255,255,255,0.85)' }}>
                     {angle.label}
                   </p>
-                  <p className="text-[11px] text-stone-400 dark:text-stone-500 group-hover:text-stone-500 dark:group-hover:text-stone-400 transition-colors mt-0.5 leading-snug">
+                  <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'rgba(255,255,255,0.35)' }}>
                     {angle.sublabel}
                   </p>
                 </div>
               </button>
             ))}
           </div>
-
         </div>
       )}
     </div>

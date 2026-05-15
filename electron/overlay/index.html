@@ -8,8 +8,7 @@
 
     body {
       overflow: hidden;
-      background: #000000;
-      border-radius: 0 0 14px 14px;
+      background: transparent;
       font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
       -webkit-app-region: drag;
       height: 100vh;
@@ -149,9 +148,15 @@
 
     .task-list {
       flex: 1;
-      overflow: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
       padding: 4px 6px 8px;
     }
+
+    .task-list::-webkit-scrollbar { width: 3px; }
+    .task-list::-webkit-scrollbar-track { background: transparent; }
+    .task-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 99px; }
+    .task-list::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
 
     .task-row {
       display: flex;

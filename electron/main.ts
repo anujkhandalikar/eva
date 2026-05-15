@@ -19,6 +19,7 @@ function createWindow() {
     transparent: true,
     alwaysOnTop: true,
     hasShadow: false,
+    roundedCorners: false,
     show: false,
     skipTaskbar: true,
     webPreferences: {
@@ -184,7 +185,7 @@ ipcMain.on('fetch-tasks', async () => {
   try {
     const res = await fetch('http://localhost:3000/api/tasks');
     const data = await res.json() as { tasks?: unknown[] };
-    const tasks = (data.tasks ?? []).slice(0, 5);
+    const tasks = (data.tasks ?? []).slice(0, 20);
     mainWindow?.webContents.send('tasks-data', tasks);
   } catch {
     mainWindow?.webContents.send('tasks-data', []);
@@ -198,4 +199,16 @@ ipcMain.on('resize-window', (_, height: number) => {
 
 ipcMain.on('open-task', () => {
   shell.openExternal('http://localhost:3000');
+});
+
+ipcMain.on('clear-tasks', async (_, status: string) => {
+  try {
+    const res = await fetch(`http://localhost:3000/api/tasks?status=${status}`, {
+      method: 'DELETE',
+    });
+    const data = await res.json() as { count?: number; error?: string };
+    mainWindow?.webContents.send('clear-result', data.count ?? 0);
+  } catch {
+    mainWindow?.webContents.send('clear-result', -1);
+  }
 });

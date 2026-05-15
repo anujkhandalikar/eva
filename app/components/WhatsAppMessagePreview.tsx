@@ -25,39 +25,53 @@ export default function WhatsAppMessagePreview({
 
   if (done) {
     return (
-      <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+      <div className="text-sm font-medium" style={{ color: '#22c55e' }}>
         Message sent to {message.recipient_name}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 border border-[#EDE8E2] dark:border-stone-700 rounded-xl p-4 bg-stone-50/60 dark:bg-stone-800/40">
+    <div
+      className="flex flex-col gap-3 rounded-xl p-4"
+      style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}
+    >
       <div className="flex items-center gap-2">
         <span className="text-lg">💬</span>
-        <span className="text-sm font-semibold text-stone-700 dark:text-stone-300">
+        <span className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
           {message.recipient_name}
         </span>
-        <span className="text-xs text-stone-400 dark:text-stone-500 font-mono">
+        <span className="text-xs font-mono" style={{ color: 'rgba(255,255,255,0.3)' }}>
           {message.recipient.replace('@s.whatsapp.net', '')}
         </span>
       </div>
 
-      <p className="text-sm text-stone-700 dark:text-stone-300 italic leading-relaxed bg-white dark:bg-stone-900 rounded-lg px-3 py-2 border border-[#EDE8E2] dark:border-stone-700">
+      <p
+        className="text-sm italic leading-relaxed rounded-lg px-3 py-2"
+        style={{
+          color: 'rgba(255,255,255,0.7)',
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.07)',
+        }}
+      >
         &ldquo;{message.body}&rdquo;
       </p>
 
       <div className="flex gap-2 justify-end">
         <button
           onClick={() => setDone(true)}
-          className="px-4 py-1.5 rounded-full text-xs font-semibold text-stone-500 dark:text-stone-400 border border-[#EDE8E2] dark:border-stone-700 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+          className="px-4 py-1.5 rounded-full text-xs font-semibold transition-colors"
+          style={{ color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.4)'; }}
         >
           Cancel
         </button>
         <button
           onClick={handleSend}
           disabled={sending}
-          className="px-4 py-1.5 rounded-full text-xs font-semibold bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="px-4 py-1.5 rounded-full text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          style={{ background: '#22c55e', color: '#fff' }}
         >
           {sending ? 'Sending…' : 'Send Message'}
         </button>

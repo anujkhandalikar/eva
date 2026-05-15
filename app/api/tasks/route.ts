@@ -18,6 +18,31 @@ export async function GET() {
   }
 }
 
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status');
+
+    const allowed = ['failed', 'done', 'pending'];
+    if (!status || !allowed.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('status', status)
+      .select('id');
+
+    if (error) throw error;
+
+    return NextResponse.json({ count: data.length });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { input } = await req.json();

@@ -12,7 +12,16 @@ export default function ViewToggle({ view, onChange }: ViewToggleProps) {
   return (
     <button
       onClick={() => onChange(view === 'cards' ? 'list' : 'cards')}
-      className="w-9 h-9 rounded-full flex items-center justify-center text-stone-400 hover:text-stone-600 hover:bg-stone-100 dark:text-stone-500 dark:hover:text-stone-300 dark:hover:bg-stone-800 transition-colors"
+      className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+      style={{ color: 'rgba(255,255,255,0.3)', background: 'transparent' }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)';
+        (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.3)';
+        (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+      }}
       aria-label={view === 'cards' ? 'Switch to list view' : 'Switch to card view'}
     >
       {view === 'cards' ? <Layers size={16} /> : <List size={16} />}

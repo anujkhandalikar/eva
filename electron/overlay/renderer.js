@@ -11,6 +11,7 @@ const taskList = document.getElementById('taskList');
 const BASE_H = 75;
 const ROW_H = 30;
 const PANEL_EXTRA = 20; // separator + list padding
+const MAX_H = 285; // cap — panel scrolls beyond this
 let browseOpen = false;
 let pendingBrowseOpen = false;
 let storedTasks = [];
@@ -41,6 +42,9 @@ let placeholderIndex = 0;
 // ── Show / hide ──
 ipcRenderer.on('did-show', () => {
     notchConfirm.className = 'notch-confirm';
+    const textEl = notchConfirm.querySelector('.text');
+    if (textEl)
+        textEl.textContent = 'Captured';
     input.value = '';
     input.classList.remove('has-text');
     placeholderIndex = (placeholderIndex + 1) % placeholders.length;
@@ -81,21 +85,23 @@ ipcRenderer.on('tasks-data', (_, tasks) => {
     }
 });
 function updateBadge(tasks) {
-    const count = tasks.length;
+    const actionable = tasks.filter(t => t.status === 'needs_approval' || t.status === 'failed').length;
     const hasRunning = tasks.some(t => t.status === 'running' || t.status === 'pending');
-    if (count === 0) {
-        browseBtn.classList.remove('has-tasks');
-        browseBadge.classList.remove('visible', 'pulse');
-        browseBadge.textContent = '';
-        return;
-    }
-    browseBtn.classList.add('has-tasks');
-    browseBadge.textContent = String(count);
-    browseBadge.classList.add('visible');
-    if (hasRunning)
-        browseBadge.classList.add('pulse');
-    else
+    const hasTasks = tasks.length > 0;
+    browseBtn.classList.toggle('has-tasks', hasTasks);
+    if (actionable > 0) {
+        browseBadge.textContent = String(actionable);
+        browseBadge.classList.add('visible');
         browseBadge.classList.remove('pulse');
+    }
+    else if (hasRunning) {
+        browseBadge.textContent = '';
+        browseBadge.classList.add('visible', 'pulse');
+    }
+    else {
+        browseBadge.textContent = '';
+        browseBadge.classList.remove('visible', 'pulse');
+    }
 }
 function timeAgo(iso) {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -129,13 +135,28 @@ function renderTaskList(tasks) {
         taskList.appendChild(row);
     });
 }
+const STATUS_PRIORITY = {
+    needs_approval: 0,
+    running: 1,
+    pending: 1,
+    failed: 2,
+    done: 3,
+};
+function sortByUrgency(tasks) {
+    return [...tasks].sort((a, b) => {
+        const pd = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
+        if (pd !== 0)
+            return pd;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+}
 function browseHeight(count) {
-    return BASE_H + PANEL_EXTRA + Math.min(count, 5) * ROW_H;
+    return Math.min(BASE_H + PANEL_EXTRA + count * ROW_H, MAX_H);
 }
 function openBrowse(tasks) {
     browseOpen = true;
     browseBtn.classList.add('active');
-    renderTaskList(tasks);
+    renderTaskList(sortByUrgency(tasks));
     ipcRenderer.send('resize-window', browseHeight(tasks.length));
 }
 function closeBrowse() {
@@ -218,16 +239,46 @@ function spawnConfetti() {
         cancelAnimationFrame(animFrame);
     draw();
 }
+// ── Commands ──
+const COMMANDS = {
+    '/clear failed': { status: 'failed', label: 'Cleared' },
+    '/clear done': { status: 'done', label: 'Cleared' },
+    '/clear pending': { status: 'pending', label: 'Cleared' },
+};
+ipcRenderer.on('clear-result', (_, count) => {
+    collapseAndConfirm(count < 0 ? 'Error' : count === 0 ? 'Nothing to clear' : `Cleared ${count}`);
+});
+function collapseAndConfirm(message) {
+    const textEl = notchConfirm.querySelector('.text');
+    if (textEl)
+        textEl.textContent = message;
+    if (browseOpen) {
+        browseOpen = false;
+        browseBtn.classList.remove('active');
+    }
+    pill.classList.remove('drop');
+    void pill.offsetHeight;
+    pill.classList.add('collapse');
+    setTimeout(() => ipcRenderer.send('contract-to-notch'), 110);
+}
 // ── Submit ──
 function submit() {
-    const task = input.value.trim();
-    if (!task)
+    const raw = input.value.trim();
+    if (!raw)
         return;
-    spawnConfetti();
-    ipcRenderer.send('submit-task', task);
     input.value = '';
     input.classList.remove('has-text');
-    // collapse browse first if open, then collapse pill
+    const cmd = COMMANDS[raw.toLowerCase()];
+    if (cmd) {
+        ipcRenderer.send('clear-tasks', cmd.status);
+        return;
+    }
+    if (raw.startsWith('/')) {
+        collapseAndConfirm('Unknown command');
+        return;
+    }
+    spawnConfetti();
+    ipcRenderer.send('submit-task', raw);
     if (browseOpen) {
         browseOpen = false;
         browseBtn.classList.remove('active');

@@ -16,13 +16,13 @@ interface SwipeableTaskCardProps {
   index: number;
 }
 
-const statusColors: Record<Task['status'], string> = {
-  pending: 'bg-stone-100 text-stone-500 border border-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:border-stone-700',
-  running: 'bg-orange-50 text-orange-600 border border-orange-200 animate-pulse dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
-  done: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-900/60',
-  needs_approval: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60',
-  failed: 'bg-red-50 text-red-600 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/60',
-  needs_otp: 'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/60',
+const statusDotColor: Record<Task['status'], string> = {
+  pending: 'rgba(255,255,255,0.2)',
+  running: 'rgba(255,255,255,0.5)',
+  done: '#22c55e',
+  needs_approval: '#eab308',
+  failed: '#ef4444',
+  needs_otp: '#3b82f6',
 };
 
 const statusLabels: Record<Task['status'], string> = {
@@ -82,6 +82,9 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
   const firstLink =
     extractFirstLink(task.result_summary) ?? extractFirstLink(task.result_full);
 
+  const isRunning = task.status === 'running';
+  const dotColor = statusDotColor[task.status];
+
   return (
     <motion.div
       style={{
@@ -102,24 +105,29 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
       onDragEnd={handleDragEnd}
       className="cursor-grab active:cursor-grabbing"
     >
-      <div className="bg-white/80 dark:bg-stone-900/85 backdrop-blur-2xl border border-[#EDE8E2] dark:border-stone-700 rounded-2xl w-full h-full flex flex-col shadow-[0_8px_40px_rgba(217,119,86,0.09),0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.25)] relative overflow-hidden">
-
+      <div
+        className="rounded-2xl w-full h-full flex flex-col relative overflow-hidden"
+        style={{
+          background: '#111111',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}
+      >
         {/* Delete overlay */}
         <motion.div
-          style={{ opacity: deleteOpacity }}
-          className="absolute inset-0 bg-red-400/15 backdrop-blur-sm z-20 flex items-center justify-center pointer-events-none rounded-2xl"
+          style={{ opacity: deleteOpacity, background: 'rgba(239,68,68,0.12)', backdropFilter: 'blur(4px)' }}
+          className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none rounded-2xl"
         >
-          <div className="bg-red-500/90 rounded-full p-5 shadow-lg">
+          <div className="rounded-full p-5 shadow-lg" style={{ background: '#ef4444' }}>
             <X className="w-12 h-12 text-white" strokeWidth={2.5} />
           </div>
         </motion.div>
 
         {/* Keep overlay */}
         <motion.div
-          style={{ opacity: keepOpacity }}
-          className="absolute inset-0 bg-orange-300/15 backdrop-blur-sm z-20 flex items-center justify-center pointer-events-none rounded-2xl"
+          style={{ opacity: keepOpacity, background: 'rgba(34,197,94,0.10)', backdropFilter: 'blur(4px)' }}
+          className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none rounded-2xl"
         >
-          <div className="rounded-full p-5 shadow-lg" style={{ backgroundColor: '#D97756' }}>
+          <div className="rounded-full p-5 shadow-lg" style={{ background: '#22c55e' }}>
             <Check className="w-12 h-12 text-white" strokeWidth={2.5} />
           </div>
         </motion.div>
@@ -129,15 +137,24 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
 
           {task.status !== 'done' && (
             <div className="flex justify-end shrink-0">
-              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${statusColors[task.status]}`}>
-                {statusLabels[task.status]}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${isRunning ? 'animate-pulse' : ''}`}
+                  style={{ background: dotColor }}
+                />
+                <span
+                  className="text-[10px] font-bold uppercase tracking-widest"
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                >
+                  {statusLabels[task.status]}
+                </span>
+              </div>
             </div>
           )}
 
           <p
-            className="font-semibold text-xl text-stone-900 dark:text-stone-100 leading-snug shrink-0"
-            style={{ fontFamily: 'var(--font-grotesk)' }}
+            className="font-bold text-xl leading-snug shrink-0"
+            style={{ color: 'rgba(255,255,255,0.9)', letterSpacing: '-0.02em' }}
           >
             {task.input}
           </p>
@@ -147,14 +164,14 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
             className={`flex-1 min-h-0 ${expanded ? 'overflow-y-auto' : 'overflow-hidden'}`}
           >
             {(task.result_summary || task.error_reason) ? (
-              <div className="text-stone-600 dark:text-stone-400 text-sm leading-relaxed">
+              <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
                 {task.error_reason ? (
-                  <span className="text-red-500 dark:text-red-400 font-medium">Error: {task.error_reason}</span>
+                  <span className="font-medium" style={{ color: '#ef4444' }}>Error: {task.error_reason}</span>
                 ) : (
                   <ol className="flex flex-col gap-2.5">
                     {resultLines.map((line, i) => (
                       <li key={i} className="flex gap-2 leading-snug">
-                        <span className="text-stone-300 dark:text-stone-600 shrink-0 font-medium">{i + 1}.</span>
+                        <span className="shrink-0 font-medium" style={{ color: 'rgba(255,255,255,0.18)' }}>{i + 1}.</span>
                         <span>{stripLinks(line.replace(/^[-–—]\s*/, ''))}</span>
                       </li>
                     ))}
@@ -162,7 +179,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
                 )}
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-stone-400 dark:text-stone-500 text-sm italic">
+              <div className="h-full flex items-center justify-center text-sm italic" style={{ color: 'rgba(255,255,255,0.22)' }}>
                 {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
               </div>
             )}
@@ -171,7 +188,10 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
           {overflows && (
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded(prev => !prev); }}
-              className="shrink-0 text-xs text-stone-400 dark:text-stone-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors text-left -mt-2"
+              className="shrink-0 text-xs transition-colors text-left -mt-2"
+              style={{ color: 'rgba(255,255,255,0.3)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.3)'; }}
             >
               {expanded ? 'Show less' : 'Read more'}
             </button>
@@ -207,7 +227,11 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="shrink-0 block text-center py-2 px-4 rounded-full border border-[#EDE8E2] dark:border-stone-700 text-stone-500 dark:text-stone-400 text-sm hover:border-orange-300 hover:text-orange-600 dark:hover:border-orange-800 dark:hover:text-orange-400 transition-colors bg-white/50 dark:bg-stone-800/50"
+              className="shrink-0 block text-center py-2 px-4 rounded-full text-sm transition-colors"
+              style={{
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.4)',
+              }}
             >
               link
             </a>

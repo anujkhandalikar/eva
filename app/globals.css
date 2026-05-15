@@ -1,18 +1,9 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 :root {
-  --background: #FAF9F7;
-  --foreground: #1C1917;
-  --accent: #D97756;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-jakarta);
-  --font-display: var(--font-grotesk);
+  --background: #000000;
+  --foreground: rgba(255, 255, 255, 0.9);
+  --accent: #dc2626;
 }
 
 html,
@@ -23,12 +14,9 @@ body {
 }
 
 body {
-  background: #FAF9F7;
-  color: var(--foreground);
-  font-family: var(--font-jakarta), system-ui, sans-serif;
-}
-
-.dark body {
-  background: #1C1917;
-  color: #F5F5F4;
+  background: #000000;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }

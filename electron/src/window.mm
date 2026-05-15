@@ -58,7 +58,7 @@ Napi::Value PlaceInNotch(const Napi::CallbackInfo& info) {
     ];
     [window setHasShadow:NO];
     [window setOpaque:NO];
-    [window setBackgroundColor:[NSColor blackColor]];
+    [window setBackgroundColor:[NSColor clearColor]];
     [window setFrame:NSMakeRect(x, y, targetW, targetH) display:YES animate:NO];
 
     return env.Undefined();

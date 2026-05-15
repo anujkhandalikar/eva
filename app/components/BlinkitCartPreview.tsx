@@ -42,38 +42,41 @@ export default function BlinkitCartPreview({ cart, taskId }: BlinkitCartPreviewP
       <div className="flex flex-col gap-1.5">
         {foundItems.map((item, i) => (
           <div key={i} className="flex justify-between items-center text-sm">
-            <span className="text-stone-700 dark:text-stone-300">
+            <span style={{ color: 'rgba(255,255,255,0.75)' }}>
               {item.name}
-              <span className="text-stone-400 dark:text-stone-500 ml-1">×{item.quantity}</span>
+              <span className="ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>×{item.quantity}</span>
             </span>
-            <span className="text-stone-500 dark:text-stone-400 tabular-nums">{item.unit_price}</span>
+            <span className="tabular-nums" style={{ color: 'rgba(255,255,255,0.45)' }}>{item.unit_price}</span>
           </div>
         ))}
         {missingItems.map((item, i) => (
           <div key={i} className="flex justify-between items-center text-sm">
-            <span className="text-red-400 dark:text-red-500 line-through">{item.requested}</span>
-            <span className="text-red-400 dark:text-red-500 text-xs">not found</span>
+            <span className="line-through" style={{ color: '#ef4444' }}>{item.requested}</span>
+            <span className="text-xs" style={{ color: '#ef4444' }}>not found</span>
           </div>
         ))}
       </div>
 
       {total > 0 && (
-        <div className="flex justify-between items-center text-sm font-semibold border-t border-[#EDE8E2] dark:border-stone-700 pt-2">
-          <span className="text-stone-600 dark:text-stone-400">Estimated total</span>
-          <span className="text-stone-900 dark:text-stone-100">₹{total}</span>
+        <div
+          className="flex justify-between items-center text-sm font-semibold pt-2"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <span style={{ color: 'rgba(255,255,255,0.45)' }}>Estimated total</span>
+          <span style={{ color: 'rgba(255,255,255,0.9)' }}>₹{total}</span>
         </div>
       )}
 
       {error && (
-        <p className="text-xs text-red-500 dark:text-red-400">{error}</p>
+        <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>
       )}
 
       {foundItems.length > 0 && (
         <button
           onClick={handleApprove}
           disabled={loading}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-50"
-          style={{ backgroundColor: '#D97756' }}
+          className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-50"
+          style={{ background: '#dc2626', color: '#fff' }}
         >
           {loading ? 'Placing order…' : 'Place Order'}
         </button>

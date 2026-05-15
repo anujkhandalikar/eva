@@ -10,11 +10,11 @@ const actionLabels: Record<CalendarAction['type'], string> = {
   delete: 'Delete Event',
 };
 
-const actionColors: Record<CalendarAction['type'], string> = {
-  list: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/60',
-  create: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/60',
-  update: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60',
-  delete: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900/60',
+const actionDotColor: Record<CalendarAction['type'], string> = {
+  list: '#3b82f6',
+  create: '#22c55e',
+  update: '#eab308',
+  delete: '#ef4444',
 };
 
 function formatDateTime(iso: string): string {
@@ -55,27 +55,31 @@ export default function CalendarActionPreview({
   if (action.type === 'list') return null;
 
   return (
-    <div className="rounded-xl border border-[#EDE8E2] dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800/40 p-4 flex flex-col gap-3">
+    <div
+      className="rounded-xl p-4 flex flex-col gap-3"
+      style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}
+    >
       <div className="flex items-center gap-2">
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest border ${actionColors[action.type]}`}>
+        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: actionDotColor[action.type] }} />
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
           {actionLabels[action.type]}
         </span>
       </div>
 
       {action.type === 'create' && (
-        <div className="flex flex-col gap-1 text-sm text-stone-700 dark:text-stone-300">
-          <p className="font-semibold">{action.summary}</p>
-          <p className="text-stone-500 dark:text-stone-400">
+        <div className="flex flex-col gap-1 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{action.summary}</p>
+          <p style={{ color: 'rgba(255,255,255,0.45)' }}>
             {formatDateTime(action.startTime)} → {formatDateTime(action.endTime)}
           </p>
           {action.location && (
-            <p className="text-stone-500 dark:text-stone-400">📍 {action.location}</p>
+            <p style={{ color: 'rgba(255,255,255,0.45)' }}>📍 {action.location}</p>
           )}
           {action.description && (
-            <p className="text-stone-500 dark:text-stone-400 text-xs">{action.description}</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{action.description}</p>
           )}
           {action.attendees && action.attendees.length > 0 && (
-            <p className="text-stone-500 dark:text-stone-400 text-xs">
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
               {action.attendees.join(', ')}
             </p>
           )}
@@ -83,33 +87,36 @@ export default function CalendarActionPreview({
       )}
 
       {action.type === 'update' && (
-        <div className="flex flex-col gap-1 text-sm text-stone-700 dark:text-stone-300">
-          <p className="font-semibold">"{action.eventSummary}"</p>
+        <div className="flex flex-col gap-1 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>&ldquo;{action.eventSummary}&rdquo;</p>
           {action.summary && (
-            <p className="text-stone-500 dark:text-stone-400">Rename to: {action.summary}</p>
+            <p style={{ color: 'rgba(255,255,255,0.45)' }}>Rename to: {action.summary}</p>
           )}
           {action.startTime && (
-            <p className="text-stone-500 dark:text-stone-400">
+            <p style={{ color: 'rgba(255,255,255,0.45)' }}>
               New time: {formatDateTime(action.startTime)} → {action.endTime ? formatDateTime(action.endTime) : ''}
             </p>
           )}
           {action.description && (
-            <p className="text-stone-500 dark:text-stone-400 text-xs">{action.description}</p>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{action.description}</p>
           )}
         </div>
       )}
 
       {action.type === 'delete' && (
-        <div className="flex flex-col gap-1 text-sm text-stone-700 dark:text-stone-300">
-          <p className="font-semibold">"{action.eventSummary}"</p>
-          <p className="text-stone-500 dark:text-stone-400 text-xs">This event will be permanently removed from your calendar.</p>
+        <div className="flex flex-col gap-1 text-sm">
+          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>&ldquo;{action.eventSummary}&rdquo;</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>This event will be permanently removed from your calendar.</p>
         </div>
       )}
 
       <button
         onClick={handleApprove}
         disabled={approving || approved}
-        className="w-full py-2 px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 hover:bg-stone-700 dark:hover:bg-stone-300"
+        className="w-full py-2 px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ background: 'rgba(255,255,255,0.9)', color: '#000' }}
+        onMouseEnter={(e) => { if (!approving && !approved) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.75)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.9)'; }}
       >
         {approved ? 'Confirmed' : approving ? 'Processing...' : `Confirm ${actionLabels[action.type]}`}
       </button>

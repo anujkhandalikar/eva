@@ -38,7 +38,7 @@ export default function OtpInput({ taskId }: OtpInputProps) {
 
   if (submitted) {
     return (
-      <p className="text-sm text-stone-500 dark:text-stone-400 italic">
+      <p className="text-sm italic" style={{ color: 'rgba(255,255,255,0.4)' }}>
         OTP submitted — logging in…
       </p>
     );
@@ -50,7 +50,7 @@ export default function OtpInput({ taskId }: OtpInputProps) {
       onClick={(e) => e.stopPropagation()}
       className="flex flex-col gap-2"
     >
-      <p className="text-sm text-stone-500 dark:text-stone-400">
+      <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
         Enter the OTP sent to your phone to log into Blinkit.
       </p>
       <div className="flex gap-2">
@@ -61,18 +61,25 @@ export default function OtpInput({ taskId }: OtpInputProps) {
           value={otp}
           onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
           placeholder="6-digit OTP"
-          className="flex-1 px-3 py-2 rounded-xl border border-[#EDE8E2] dark:border-stone-700 bg-white/80 dark:bg-stone-800/80 text-stone-900 dark:text-stone-100 text-sm outline-none focus:border-orange-300 dark:focus:border-orange-700 transition-colors"
+          className="flex-1 px-3 py-2 rounded-xl text-sm outline-none transition-colors"
+          style={{
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: 'rgba(255,255,255,0.9)',
+          }}
+          onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.25)'; }}
+          onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
         />
         <button
           type="submit"
           disabled={loading || otp.length < 4}
-          className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-opacity"
-          style={{ backgroundColor: '#D97756' }}
+          className="px-4 py-2 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
+          style={{ background: '#dc2626', color: '#fff' }}
         >
           {loading ? '…' : 'Submit'}
         </button>
       </div>
-      {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
+      {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
     </form>
   );
 }

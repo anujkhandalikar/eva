@@ -100,8 +100,8 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
 
   if (localQueue.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-stone-400 dark:text-stone-500 gap-4">
-        <Layers size={48} className="opacity-20" />
+      <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: 'rgba(255,255,255,0.22)' }}>
+        <Layers size={48} style={{ opacity: 0.15 }} />
         <p>No tasks left in the pile.</p>
       </div>
     );
@@ -127,7 +127,7 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
         </AnimatePresence>
       </div>
 
-      <div className="shrink-0 h-28 flex items-start justify-center pt-3 text-sm text-stone-400 dark:text-stone-500 tabular-nums font-medium">
+      <div className="shrink-0 h-28 flex items-start justify-center pt-3 text-sm tabular-nums font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>
         {currentPos}/{localQueue.length}
       </div>
 
@@ -137,8 +137,13 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
           <button
             onClick={handleRerunFront}
             disabled={rerunning || frontTask?.status === 'running'}
-            style={{ position: 'fixed', bottom: 32, left: 32, zIndex: 9999 }}
-            className="w-14 h-14 rounded-full bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm border border-[#EDE8E2] dark:border-stone-700 shadow-lg text-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              position: 'fixed', bottom: 32, left: 32, zIndex: 9999,
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.6)',
+            }}
+            className="w-14 h-14 rounded-full text-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {rerunning ? '⏳' : '↺'}
           </button>
@@ -146,10 +151,18 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
           {/* Tell me more — bottom right */}
           <div ref={dropdownRef} style={{ position: 'fixed', bottom: 32, right: 32, zIndex: 9999 }}>
             {dropdownOpen && (
-              <div className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl border border-[#EDE8E2] dark:border-stone-700 bg-white/95 dark:bg-stone-900/95 backdrop-blur-2xl shadow-[0_8px_32px_rgba(217,119,86,0.10),0_2px_8px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5),0_2px_8px_rgba(0,0,0,0.3)] overflow-hidden">
-                <div className="px-3 py-2 border-b border-[#EDE8E2] dark:border-stone-700">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 dark:text-stone-500">
-                    What do you want to explore?
+              <div
+                className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl overflow-hidden"
+                style={{
+                  background: 'rgba(20,20,20,0.95)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                }}
+              >
+                <div className="px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                    Explore
                   </p>
                 </div>
                 <div className="p-1.5 flex flex-col gap-0.5">
@@ -157,14 +170,17 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
                     <button
                       key={angle.id}
                       onClick={() => handleAngle(angle.buildPrompt)}
-                      className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-orange-50 dark:hover:bg-stone-800 transition-colors group flex items-start gap-2.5"
+                      className="w-full text-left px-3 py-2.5 rounded-xl transition-colors flex items-start gap-2.5"
+                      style={{ color: 'rgba(255,255,255,0.7)' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                     >
                       <span className="text-base leading-none mt-0.5">{angle.emoji}</span>
                       <div>
-                        <p className="text-sm font-medium text-stone-700 dark:text-stone-300 group-hover:text-stone-900 dark:group-hover:text-stone-100 transition-colors leading-snug">
+                        <p className="text-sm font-medium leading-snug" style={{ color: 'rgba(255,255,255,0.85)' }}>
                           {angle.label}
                         </p>
-                        <p className="text-[11px] text-stone-400 dark:text-stone-500 group-hover:text-stone-500 dark:group-hover:text-stone-400 transition-colors mt-0.5 leading-snug">
+                        <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'rgba(255,255,255,0.35)' }}>
                           {angle.sublabel}
                         </p>
                       </div>
@@ -176,8 +192,13 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
             <button
               onClick={() => frontTask && setDropdownOpen((o) => !o)}
               disabled={!frontTask}
-              style={{ lineHeight: 1 }}
-              className="w-14 h-14 rounded-full bg-white/80 dark:bg-stone-900/80 backdrop-blur-sm border border-[#EDE8E2] dark:border-stone-700 shadow-lg text-4xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                lineHeight: 1,
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.6)',
+              }}
+              className="w-14 h-14 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <Snowflake size={24} />
             </button>
