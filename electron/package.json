@@ -17,6 +17,7 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
+    "node-addon-api": "^8.7.0",
     "node-global-key-listener": "^0.3.0",
     "uiohook-napi": "^1.5.5"
   }

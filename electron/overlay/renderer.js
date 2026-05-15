@@ -1,7 +1,8 @@
 "use strict";
 const { ipcRenderer } = require('electron');
+const pill = document.getElementById('pill');
 const input = document.getElementById('taskInput');
-const sentPill = document.getElementById('sentPill');
+const notchConfirm = document.getElementById('notchConfirm');
 const confettiCanvas = document.getElementById('confetti');
 const ctx = confettiCanvas.getContext('2d');
 const placeholders = [
@@ -27,27 +28,48 @@ const placeholders = [
     "Task or I riot.",
 ];
 let placeholderIndex = 0;
-const pill = document.querySelector('.pill');
+// ── Show / hide ──
 ipcRenderer.on('did-show', () => {
-    placeholderIndex = (placeholderIndex + 1) % placeholders.length;
-    input.placeholder = placeholders[placeholderIndex];
+    notchConfirm.className = 'notch-confirm';
     input.value = '';
     input.style.opacity = '1';
     input.classList.remove('has-text');
-    sentPill.className = 'sent-pill';
-    // reset then re-trigger drop animation
-    pill.classList.remove('drop');
-    void pill.offsetHeight; // force reflow
+    placeholderIndex = (placeholderIndex + 1) % placeholders.length;
+    input.placeholder = placeholders[placeholderIndex];
+    pill.classList.remove('drop', 'collapse');
+    void pill.offsetHeight;
     pill.classList.add('drop');
     setTimeout(() => input.focus(), 60);
 });
 ipcRenderer.on('did-hide', () => {
     input.value = '';
     input.classList.remove('has-text');
+    pill.classList.remove('drop', 'collapse');
 });
+// ── Notch confirm (called from main after window contracted) ──
+ipcRenderer.on('show-confirm', () => {
+    notchConfirm.className = 'notch-confirm';
+    void notchConfirm.offsetHeight;
+    notchConfirm.classList.add('show');
+    // after animation finishes, hide window
+    setTimeout(() => ipcRenderer.send('hide-window'), 1650);
+});
+// ── Input handlers ──
 input.addEventListener('input', () => {
     input.classList.toggle('has-text', input.value.length > 0);
 });
+input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter')
+        submit();
+    else if (e.key === 'Escape')
+        dismiss();
+});
+function dismiss() {
+    pill.classList.remove('drop');
+    void pill.offsetHeight;
+    pill.classList.add('collapse');
+    setTimeout(() => ipcRenderer.send('hide-window'), 230);
+}
 const COLORS = ['#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#be123c', '#ff6b8a', '#fff1f2'];
 let particles = [];
 let animFrame = null;
@@ -58,13 +80,12 @@ function spawnConfetti() {
     const h = confettiCanvas.height;
     particles = Array.from({ length: 28 }, () => ({
         x: w / 2 + (Math.random() - 0.5) * 80,
-        y: h / 2 + (Math.random() - 0.5) * 10,
+        y: h / 2,
         vx: (Math.random() - 0.5) * 5,
         vy: -(Math.random() * 3 + 1),
         size: Math.random() * 4 + 2,
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
-        life: 0,
-        maxLife: Math.random() * 25 + 30,
+        life: 0, maxLife: Math.random() * 25 + 30,
         rotation: Math.random() * Math.PI * 2,
         rotationSpeed: (Math.random() - 0.5) * 0.2,
     }));
@@ -85,12 +106,10 @@ function spawnConfetti() {
             ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
             ctx.restore();
         }
-        if (particles.length > 0) {
+        if (particles.length > 0)
             animFrame = requestAnimationFrame(draw);
-        }
-        else {
+        else
             ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
-        }
     }
     if (animFrame)
         cancelAnimationFrame(animFrame);
@@ -101,20 +120,16 @@ function submit() {
     const task = input.value.trim();
     if (!task)
         return;
-    input.style.opacity = '0';
     spawnConfetti();
-    sentPill.className = 'sent-pill visible';
     ipcRenderer.send('submit-task', task);
     input.value = '';
     input.classList.remove('has-text');
+    // 1. collapse panel
     setTimeout(() => {
-        sentPill.className = 'sent-pill fading';
-        setTimeout(() => ipcRenderer.send('hide-window'), 260);
-    }, 750);
+        pill.classList.remove('drop');
+        void pill.offsetHeight;
+        pill.classList.add('collapse');
+    }, 120);
+    // 2. tell main to contract window + show confirm
+    setTimeout(() => ipcRenderer.send('contract-to-notch'), 340);
 }
-input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter')
-        submit();
-    else if (e.key === 'Escape')
-        ipcRenderer.send('hide-window');
-});

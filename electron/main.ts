@@ -2,6 +2,10 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as path from 'path';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 
+// Native addon — sets NSWindow level above menu bar and positions flush in notch
+const native: { moveToNotch: (handle: Buffer, w: number, h: number) => void } =
+  require('./build/Release/window_native.node');
+
 let mainWindow: BrowserWindow | null = null;
 let lastCtrlPressTime = 0;
 const DOUBLE_TAP_THRESHOLD = 400;
@@ -41,18 +45,12 @@ function toggleOverlay() {
     return;
   }
 
-  const display = screen.getPrimaryDisplay();
-  const menuBarH = display.workArea.y; // ~37px on MacBook Pro with notch
   const w = 220;
-  const h = menuBarH + 22;             // half the previous overhang
+  const h = 46;
 
-  // show first — macOS ignores setBounds on hidden windows
   mainWindow.show();
-  mainWindow.setPosition(
-    Math.round(display.bounds.width / 2 - w / 2),
-    0,                                 // flush against the very top
-  );
-  mainWindow.setSize(w, h);
+  // Native call bypasses macOS workArea constraint — places window in notch at y=0
+  native.moveToNotch(mainWindow.getNativeWindowHandle(), w, h);
   mainWindow.focus();
   mainWindow.webContents.send('did-show');
 }
@@ -103,4 +101,11 @@ ipcMain.on('submit-task', async (event, task) => {
 
 ipcMain.on('hide-window', () => {
   mainWindow?.hide();
+  mainWindow?.webContents.send('did-hide');
+});
+
+ipcMain.on('contract-to-notch', () => {
+  if (!mainWindow) return;
+  mainWindow.setSize(220, 46);
+  mainWindow.webContents.send('show-confirm');
 });

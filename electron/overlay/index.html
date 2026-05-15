@@ -16,9 +16,10 @@
       height: 100vh;
     }
 
+    /* ── Input panel — drops from notch ── */
     .pill {
       width: 100%;
-      background: #000000;
+      background: #000;
       border-radius: 0 0 14px 14px;
       display: flex;
       align-items: center;
@@ -30,21 +31,29 @@
     }
 
     .pill.drop {
-      animation: dropFromNotch 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: dropDown 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
 
-    @keyframes dropFromNotch {
-      0%   { transform: scaleY(0); }
-      100% { transform: scaleY(1); }
+    .pill.collapse {
+      animation: collapseUp 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
     }
 
-    /* input fades in slightly after drop starts */
+    @keyframes dropDown {
+      from { transform: scaleY(0); }
+      to   { transform: scaleY(1); }
+    }
+
+    @keyframes collapseUp {
+      from { transform: scaleY(1); }
+      to   { transform: scaleY(0); }
+    }
+
     .pill.drop input,
     .pill.drop .esc-hint {
-      animation: fadeInContent 0.2s ease 0.18s both;
+      animation: fadeIn 0.18s ease 0.16s both;
     }
 
-    @keyframes fadeInContent {
+    @keyframes fadeIn {
       from { opacity: 0; }
       to   { opacity: 1; }
     }
@@ -53,12 +62,12 @@
       flex: 1;
       background: transparent;
       border: none;
-      color: rgba(255, 255, 255, 0.9);
+      color: rgba(255,255,255,0.9);
       font-family: "Inter", -apple-system, sans-serif;
       font-size: 15px;
       font-weight: 400;
       letter-spacing: -0.02em;
-      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      font-feature-settings: "cv02","cv03","cv04","cv11";
       outline: none;
       -webkit-app-region: no-drag;
       caret-color: #e11d48;
@@ -66,71 +75,59 @@
     }
 
     input.has-text { font-weight: 500; }
-
-    input::placeholder {
-      color: rgba(255, 255, 255, 0.22);
-      font-weight: 300;
-    }
+    input::placeholder { color: rgba(255,255,255,0.22); font-weight: 300; }
 
     .esc-hint {
       font-size: 9px;
       font-weight: 500;
-      color: rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.16);
       letter-spacing: 0.06em;
       flex-shrink: 0;
       -webkit-app-region: no-drag;
     }
 
-    /* Sent pill */
-    .sent-pill {
-      position: absolute;
+    /* ── Notch confirmation — shows after collapse ── */
+    .notch-confirm {
+      position: fixed;
       inset: 0;
+      background: #000;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      border-radius: 0 0 14px 14px;
-      background: #000;
+      gap: 6px;
       opacity: 0;
       pointer-events: none;
     }
 
-    .sent-pill.visible {
-      animation: pillIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    .notch-confirm.show {
+      animation: confirmPop 1.6s ease forwards;
     }
 
-    .sent-pill.fading {
-      animation: pillOut 0.25s ease-in forwards;
-    }
-
-    @keyframes pillIn {
-      0% { opacity: 0; transform: translateY(4px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes pillOut {
-      0% { opacity: 1; }
+    @keyframes confirmPop {
+      0%   { opacity: 0; }
+      15%  { opacity: 1; }
+      70%  { opacity: 1; }
       100% { opacity: 0; }
     }
 
-    .sent-pill .check {
-      width: 20px; height: 20px;
+    .notch-confirm .tick {
+      width: 14px; height: 14px;
       border-radius: 50%;
       background: #e11d48;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
 
-    .sent-pill .check svg { width: 10px; height: 10px; }
+    .notch-confirm .tick svg { width: 7px; height: 7px; }
 
-    .sent-pill .label {
-      color: rgba(255,255,255,0.8);
-      font-size: 13px;
+    .notch-confirm .text {
+      font-size: 11px;
       font-weight: 500;
+      color: rgba(255,255,255,0.7);
       letter-spacing: -0.01em;
     }
 
-    /* Confetti */
+    /* ── Confetti ── */
     #confetti {
       position: absolute;
       inset: 0;
@@ -139,19 +136,22 @@
   </style>
 </head>
 <body>
-  <div class="pill">
+  <!-- input panel -->
+  <div class="pill" id="pill">
     <input type="text" id="taskInput" autocomplete="off" spellcheck="false">
-    <span class="esc-hint">esc</span>
     <canvas id="confetti"></canvas>
-    <div class="sent-pill" id="sentPill">
-      <div class="check">
-        <svg viewBox="0 0 10 10" fill="none">
-          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <span class="label">On it.</span>
-    </div>
   </div>
+
+  <!-- notch confirmation shown after collapse -->
+  <div class="notch-confirm" id="notchConfirm">
+    <div class="tick">
+      <svg viewBox="0 0 7 7" fill="none">
+        <path d="M1 3.5L3 5.5L6 2" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <span class="text">captured</span>
+  </div>
+
   <script src="renderer.js"></script>
 </body>
 </html>
