@@ -6,168 +6,147 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       overflow: hidden;
-      background: rgba(12, 10, 12, 0.78);
-      backdrop-filter: blur(40px) saturate(200%);
-      -webkit-backdrop-filter: blur(40px) saturate(200%);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: transparent;
       font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-      height: 100vh;
       -webkit-app-region: drag;
-      position: relative;
+      height: 100vh;
     }
 
-    /* Gradient border */
-    body::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 16px;
-      padding: 1.5px;
-      background: linear-gradient(135deg, rgba(225, 29, 72, 0.5), rgba(251, 113, 133, 0.3));
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      pointer-events: none;
-    }
-
-    body.sending::before {
-      animation: borderPulse 0.9s ease-in-out infinite, gradientShift 1.8s linear infinite;
-      background: linear-gradient(135deg, #e11d48, #fb7185, #be123c, #e11d48);
-      background-size: 300% 300%;
-    }
-
-    @keyframes borderPulse {
-      0%, 100% { opacity: 0.5; }
-      50% { opacity: 1; }
-    }
-
-    @keyframes gradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-
-    .container {
+    .pill {
       width: 100%;
-      height: 100%;
+      background: #000000;
+      border-radius: 0 0 14px 14px;
       display: flex;
       align-items: center;
-      padding: 0 22px;
+      padding: 0 14px;
+      height: 100vh;
       position: relative;
-      -webkit-app-region: drag;
+      transform-origin: top center;
+      transform: scaleY(0);
+    }
+
+    .pill.drop {
+      animation: dropFromNotch 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes dropFromNotch {
+      0%   { transform: scaleY(0); }
+      100% { transform: scaleY(1); }
+    }
+
+    /* input fades in slightly after drop starts */
+    .pill.drop input,
+    .pill.drop .esc-hint {
+      animation: fadeInContent 0.2s ease 0.18s both;
+    }
+
+    @keyframes fadeInContent {
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     input {
       flex: 1;
       background: transparent;
       border: none;
-      color: rgba(255, 255, 255, 0.92);
-      font-size: 20px;
+      color: rgba(255, 255, 255, 0.9);
+      font-family: "Inter", -apple-system, sans-serif;
+      font-size: 15px;
       font-weight: 400;
       letter-spacing: -0.02em;
       font-feature-settings: "cv02", "cv03", "cv04", "cv11";
       outline: none;
       -webkit-app-region: no-drag;
-      transition: font-size 0.15s ease, font-weight 0.15s ease;
-      caret-color: #f43f5e;
+      caret-color: #e11d48;
+      transition: font-weight 0.1s ease;
     }
 
-    input.has-text {
-      font-size: 22px;
-      font-weight: 500;
-    }
+    input.has-text { font-weight: 500; }
 
     input::placeholder {
-      color: rgba(255, 255, 255, 0.26);
+      color: rgba(255, 255, 255, 0.22);
       font-weight: 300;
     }
 
-    /* Sent pill overlay */
+    .esc-hint {
+      font-size: 9px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.18);
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+
+    /* Sent pill */
     .sent-pill {
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      border-radius: 16px;
+      gap: 8px;
+      border-radius: 0 0 14px 14px;
+      background: #000;
       opacity: 0;
       pointer-events: none;
     }
 
     .sent-pill.visible {
-      animation: pillAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      animation: pillIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     }
 
     .sent-pill.fading {
-      animation: pillFade 0.35s ease-in forwards;
+      animation: pillOut 0.25s ease-in forwards;
     }
 
-    @keyframes pillAppear {
-      0% { opacity: 0; transform: scale(0.8); }
-      100% { opacity: 1; transform: scale(1); }
+    @keyframes pillIn {
+      0% { opacity: 0; transform: translateY(4px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes pillFade {
-      0% { opacity: 1; transform: scale(1); }
-      100% { opacity: 0; transform: scale(0.92) translateY(4px); }
+    @keyframes pillOut {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
     }
 
     .sent-pill .check {
-      width: 28px;
-      height: 28px;
+      width: 20px; height: 20px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #e11d48, #f43f5e);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: #e11d48;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
-      box-shadow: 0 0 16px rgba(225, 29, 72, 0.5);
     }
 
-    .sent-pill .check svg {
-      width: 14px;
-      height: 14px;
-    }
+    .sent-pill .check svg { width: 10px; height: 10px; }
 
     .sent-pill .label {
-      color: rgba(255, 255, 255, 0.88);
-      font-size: 18px;
+      color: rgba(255,255,255,0.8);
+      font-size: 13px;
       font-weight: 500;
       letter-spacing: -0.01em;
     }
 
-    /* Confetti canvas */
+    /* Confetti */
     #confetti {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      inset: 0;
       pointer-events: none;
-      border-radius: 16px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <input type="text" id="taskInput" autofocus>
+  <div class="pill">
+    <input type="text" id="taskInput" autocomplete="off" spellcheck="false">
+    <span class="esc-hint">esc</span>
     <canvas id="confetti"></canvas>
     <div class="sent-pill" id="sentPill">
       <div class="check">
-        <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M2 7L5.5 10.5L12 3.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg viewBox="0 0 10 10" fill="none">
+          <path d="M1.5 5L4 7.5L8.5 2.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
       <span class="label">On it.</span>

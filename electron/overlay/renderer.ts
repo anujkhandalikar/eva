@@ -30,42 +30,40 @@ const placeholders = [
 
 let placeholderIndex = 0;
 
-function rotatePlaceholder() {
+const pill = document.querySelector('.pill') as HTMLDivElement;
+
+ipcRenderer.on('did-show', () => {
   placeholderIndex = (placeholderIndex + 1) % placeholders.length;
   input.placeholder = placeholders[placeholderIndex];
-}
+  input.value = '';
+  input.style.opacity = '1';
+  input.classList.remove('has-text');
+  sentPill.className = 'sent-pill';
 
-// Rotate placeholder every time window gains focus
-window.addEventListener('focus', () => {
-  rotatePlaceholder();
-  input.focus();
+  // reset then re-trigger drop animation
+  pill.classList.remove('drop');
+  void pill.offsetHeight; // force reflow
+  pill.classList.add('drop');
+
+  setTimeout(() => input.focus(), 60);
+});
+
+ipcRenderer.on('did-hide', () => {
   input.value = '';
   input.classList.remove('has-text');
-  document.body.classList.remove('sending');
-  sentPill.className = 'sent-pill';
 });
 
-// Grow text as user types
 input.addEventListener('input', () => {
-  if (input.value.length > 0) {
-    input.classList.add('has-text');
-  } else {
-    input.classList.remove('has-text');
-  }
+  input.classList.toggle('has-text', input.value.length > 0);
 });
 
-// --- Confetti particles ---
+// ── Confetti ──
 interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  color: string;
-  life: number;
-  maxLife: number;
-  rotation: number;
-  rotationSpeed: number;
+  x: number; y: number;
+  vx: number; vy: number;
+  size: number; color: string;
+  life: number; maxLife: number;
+  rotation: number; rotationSpeed: number;
 }
 
 const COLORS = ['#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#be123c', '#ff6b8a', '#fff1f2'];
@@ -78,15 +76,15 @@ function spawnConfetti() {
   const w = confettiCanvas.width;
   const h = confettiCanvas.height;
 
-  particles = Array.from({ length: 36 }, () => ({
-    x: w / 2 + (Math.random() - 0.5) * 60,
-    y: h / 2 + (Math.random() - 0.5) * 20,
-    vx: (Math.random() - 0.5) * 6,
-    vy: -(Math.random() * 4 + 2),
-    size: Math.random() * 5 + 3,
+  particles = Array.from({ length: 28 }, () => ({
+    x: w / 2 + (Math.random() - 0.5) * 80,
+    y: h / 2 + (Math.random() - 0.5) * 10,
+    vx: (Math.random() - 0.5) * 5,
+    vy: -(Math.random() * 3 + 1),
+    size: Math.random() * 4 + 2,
     color: COLORS[Math.floor(Math.random() * COLORS.length)],
     life: 0,
-    maxLife: Math.random() * 30 + 40,
+    maxLife: Math.random() * 25 + 30,
     rotation: Math.random() * Math.PI * 2,
     rotationSpeed: (Math.random() - 0.5) * 0.2,
   }));
@@ -95,18 +93,14 @@ function spawnConfetti() {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
     particles = particles.filter(p => p.life < p.maxLife);
     for (const p of particles) {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.18;
-      p.rotation += p.rotationSpeed;
-      p.life++;
-      const alpha = 1 - p.life / p.maxLife;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.15;
+      p.rotation += p.rotationSpeed; p.life++;
       ctx.save();
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = 1 - p.life / p.maxLife;
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rotation);
       ctx.fillStyle = p.color;
-      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.55);
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
       ctx.restore();
     }
     if (particles.length > 0) {
@@ -120,44 +114,26 @@ function spawnConfetti() {
   draw();
 }
 
-// --- Submit flow ---
+// ── Submit ──
 function submit() {
   const task = input.value.trim();
   if (!task) return;
 
-  // 1. visual: sending state + pulse border
-  document.body.classList.add('sending');
   input.style.opacity = '0';
-
-  // 2. confetti
   spawnConfetti();
-
-  // 3. sent pill appears
   sentPill.className = 'sent-pill visible';
 
-  // 4. send to main process
   ipcRenderer.send('submit-task', task);
   input.value = '';
   input.classList.remove('has-text');
 
-  // 5. fade pill out, then hide window
   setTimeout(() => {
     sentPill.className = 'sent-pill fading';
-    setTimeout(() => {
-      input.style.opacity = '1';
-      document.body.classList.remove('sending');
-      sentPill.className = 'sent-pill';
-      ipcRenderer.send('hide-window');
-    }, 400);
-  }, 800);
+    setTimeout(() => ipcRenderer.send('hide-window'), 260);
+  }, 750);
 }
 
 input.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    submit();
-  } else if (e.key === 'Escape') {
-    ipcRenderer.send('hide-window');
-    input.value = '';
-    input.classList.remove('has-text');
-  }
+  if (e.key === 'Enter') submit();
+  else if (e.key === 'Escape') ipcRenderer.send('hide-window');
 });
