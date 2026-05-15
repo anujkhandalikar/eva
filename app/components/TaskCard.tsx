@@ -5,7 +5,9 @@ import LLMDropdown from './LLMDropdown';
 import BlinkitCartPreview from './BlinkitCartPreview';
 import OtpInput from './OtpInput';
 import CalendarActionPreview from './CalendarActionPreview';
+import WhatsAppMessagePreview from './WhatsAppMessagePreview';
 import type { CalendarAction } from '@/lib/openai';
+import type { ProposedMessage } from '@/lib/whatsapp';
 
 type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed' | 'needs_otp';
 
@@ -28,10 +30,11 @@ export type Task = {
   error_reason: string | null;
   requires_approval: boolean;
   approved: boolean;
-  task_type?: 'research' | 'blinkit_order' | 'calendar';
+  task_type?: 'research' | 'blinkit_order' | 'calendar' | 'whatsapp';
   proposed_cart?: CartItem[] | null;
   calendar_action?: CalendarAction | null;
   calendar_event_id?: string | null;
+  proposed_message?: ProposedMessage | null;
 };
 
 const statusColors: Record<TaskStatus, string> = {
@@ -75,9 +78,10 @@ export default function TaskCard({ task }: { task: Task }) {
 
   const isCalendar = task.task_type === 'calendar';
   const isBlinkit = task.task_type === 'blinkit_order';
+  const isWhatsApp = task.task_type === 'whatsapp';
 
   const firstLink =
-    (!isCalendar && !isBlinkit)
+    (!isCalendar && !isBlinkit && !isWhatsApp)
       ? (extractFirstLink(task.result_summary) ?? extractFirstLink(task.result_full))
       : null;
 
@@ -129,6 +133,10 @@ export default function TaskCard({ task }: { task: Task }) {
 
       {isCalendar && task.calendar_action && task.status === 'needs_approval' && (
         <CalendarActionPreview action={task.calendar_action} taskId={task.id} />
+      )}
+
+      {isWhatsApp && task.proposed_message && task.status === 'needs_approval' && (
+        <WhatsAppMessagePreview message={task.proposed_message} taskId={task.id} />
       )}
 
       {firstLink && (

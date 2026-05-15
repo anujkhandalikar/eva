@@ -124,12 +124,10 @@ function submit() {
     ipcRenderer.send('submit-task', task);
     input.value = '';
     input.classList.remove('has-text');
-    // 1. collapse panel
-    setTimeout(() => {
-        pill.classList.remove('drop');
-        void pill.offsetHeight;
-        pill.classList.add('collapse');
-    }, 120);
-    // 2. tell main to contract window + show confirm
-    setTimeout(() => ipcRenderer.send('contract-to-notch'), 340);
+    // 1. collapse panel immediately
+    pill.classList.remove('drop');
+    void pill.offsetHeight;
+    pill.classList.add('collapse');
+    // 2. contract window after collapse finishes (100ms)
+    setTimeout(() => ipcRenderer.send('contract-to-notch'), 110);
 }

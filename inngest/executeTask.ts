@@ -4,6 +4,7 @@ import { detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
 import { listEvents, createEvent } from "@/lib/googleCalendar";
+import { searchContacts, getLastMessage, listRecentMessages } from "@/lib/whatsapp";
 
 function formatEventList(events: Awaited<ReturnType<typeof listEvents>>): string {
   if (events.length === 0) return "No events found in that time range.";
@@ -42,7 +43,9 @@ export const executeTask = inngest.createFunction(
 
     // Detect intent for all three types
     const intent = await step.run("detect-intent", async () => {
-      return await detectIntent(input);
+      const result = await detectIntent(input);
+      console.log(`[intent] "${input}" →`, JSON.stringify(result));
+      return result;
     });
 
     // --- Calendar path ---
@@ -137,6 +140,111 @@ export const executeTask = inngest.createFunction(
         return { success: true };
       } catch (error: unknown) {
         await step.run("update-status-failed-calendar", async () => {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          await supabase
+            .from("tasks")
+            .update({ status: "failed", error_reason: message })
+            .eq("id", id);
+        });
+        throw error;
+      }
+    }
+
+    // --- WhatsApp read path ---
+    if (intent.type === "whatsapp_read") {
+      try {
+        await step.run("set-task-type-whatsapp-read", async () => {
+          const { error } = await supabase
+            .from("tasks")
+            .update({ task_type: "whatsapp" })
+            .eq("id", id);
+          if (error) throw error;
+        });
+
+        const summary = await step.run("whatsapp-read-messages", async () => {
+          const contacts = searchContacts(intent.recipient_query);
+          if (contacts.length === 0) {
+            return `No contact found matching "${intent.recipient_query}"`;
+          }
+          const contact = contacts[0];
+          const messages = listRecentMessages(contact.jid, 5);
+          if (messages.length === 0) {
+            return `No messages found with ${contact.name}`;
+          }
+          const lines = messages.reverse().map((m) => {
+            const time = new Date(m.timestamp * 1000).toLocaleString("en-IN", {
+              month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+              timeZone: "Asia/Kolkata",
+            });
+            const who = m.is_from_me ? "You" : contact.name;
+            return `[${time}] ${who}: ${m.content ?? "(media)"}`;
+          });
+          return `Last ${messages.length} messages with ${contact.name}:\n${lines.join("\n")}`;
+        });
+
+        await step.run("update-status-done-whatsapp-read", async () => {
+          const { error } = await supabase
+            .from("tasks")
+            .update({ status: "done", result_summary: summary })
+            .eq("id", id);
+          if (error) throw error;
+        });
+
+        return { success: true };
+      } catch (error: unknown) {
+        await step.run("update-status-failed-whatsapp-read", async () => {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          await supabase
+            .from("tasks")
+            .update({ status: "failed", error_reason: message })
+            .eq("id", id);
+        });
+        throw error;
+      }
+    }
+
+    // --- WhatsApp send path ---
+    if (intent.type === "whatsapp_send") {
+      try {
+        await step.run("set-task-type-whatsapp-send", async () => {
+          const { error } = await supabase
+            .from("tasks")
+            .update({ task_type: "whatsapp" })
+            .eq("id", id);
+          if (error) throw error;
+        });
+
+        const proposedMessage = await step.run("whatsapp-resolve-recipient", async () => {
+          console.log(`[whatsapp-send] recipient_query="${intent.recipient_query}" body="${intent.message_body}"`);
+          const contacts = searchContacts(intent.recipient_query);
+          console.log(`[whatsapp-send] contacts found: ${contacts.length}`, contacts);
+          if (contacts.length === 0) {
+            throw new Error(`No contact found matching "${intent.recipient_query}"`);
+          }
+          const contact = contacts[0];
+          return {
+            recipient: contact.jid,
+            recipient_name: contact.name,
+            body: intent.message_body,
+          };
+        });
+
+        await step.run("update-needs-approval-whatsapp", async () => {
+          const { error } = await supabase
+            .from("tasks")
+            .update({
+              status: "needs_approval",
+              requires_approval: true,
+              proposed_message: proposedMessage,
+              result_summary: `Send to ${proposedMessage.recipient_name}: "${proposedMessage.body}"`,
+            })
+            .eq("id", id);
+          if (error) throw error;
+        });
+
+        return { success: true };
+      } catch (error: unknown) {
+        await step.run("update-status-failed-whatsapp-send", async () => {
           const message = error instanceof Error ? error.message : "Unknown error";
           await supabase
             .from("tasks")

@@ -55,13 +55,22 @@ export default function Dashboard() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tasks' },
-        (payload) => {
+        async (payload) => {
           if (payload.eventType === 'INSERT') {
             setTasks((prev) => [payload.new as Task, ...prev]);
           } else if (payload.eventType === 'UPDATE') {
-            setTasks((prev) =>
-              prev.map((t) => (t.id === payload.new.id ? (payload.new as Task) : t))
-            );
+            try {
+              const res = await fetch(`/api/tasks/${payload.new.id}`);
+              const json = await res.json();
+              const fresh = json.task as Task;
+              setTasks((prev) =>
+                prev.map((t) => (t.id === fresh.id ? fresh : t))
+              );
+            } catch {
+              setTasks((prev) =>
+                prev.map((t) => (t.id === payload.new.id ? { ...t, ...(payload.new as Task) } : t))
+              );
+            }
           } else if (payload.eventType === 'DELETE') {
             setTasks((prev) => prev.filter((t) => t.id !== payload.old.id));
           }

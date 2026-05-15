@@ -47,10 +47,23 @@ export type CalendarAction =
   | CalendarUpdateAction
   | CalendarDeleteAction;
 
+export type WhatsAppSendIntent = {
+  type: "whatsapp_send";
+  recipient_query: string;
+  message_body: string;
+};
+
+export type WhatsAppReadIntent = {
+  type: "whatsapp_read";
+  recipient_query: string;
+};
+
 export type TaskIntent =
   | { type: "research" }
   | { type: "blinkit_order"; items: OrderItem[] }
-  | { type: "calendar"; action: CalendarAction };
+  | { type: "calendar"; action: CalendarAction }
+  | WhatsAppSendIntent
+  | WhatsAppReadIntent;
 
 export async function detectIntent(input: string): Promise<TaskIntent> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
@@ -84,6 +97,12 @@ For CALENDAR DELETE (cancelling/removing), respond:
 BLINKIT ORDER requests: order, buy, or get grocery/food/household items delivered.
 {"type":"blinkit_order","items":[{"name":"item name","quantity":1}]}
 
+WHATSAPP SEND requests: send a WhatsApp message to someone (e.g. "message Rahul that I'm running late", "whatsapp Priya to confirm dinner", "text Mom I'll call later").
+{"type":"whatsapp_send","recipient_query":"name or phone number","message_body":"the exact message to send"}
+
+WHATSAPP READ requests: check WhatsApp messages, see what someone said, read a chat (e.g. "what did Rahul say last?", "show messages from Priya", "check my WhatsApp from Mom").
+{"type":"whatsapp_read","recipient_query":"name or phone number"}
+
 Everything else:
 {"type":"research"}
 
@@ -93,6 +112,7 @@ Rules:
 - Default event duration: 1 hour if not specified
 - For update/delete, set eventId to "" — Eva will search for the event by eventSummary at execution time
 - For blinkit: quantity defaults to 1 if not specified
+- For whatsapp_send: message_body should be the natural message text, not a meta-description
 - Only respond with valid JSON, no other text`,
       },
       { role: "user", content: input },

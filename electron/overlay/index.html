@@ -31,26 +31,27 @@
     }
 
     .pill.drop {
-      animation: dropDown 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      animation: dropDown 0.2s linear forwards;
     }
 
     .pill.collapse {
-      animation: collapseUp 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+      animation: collapseUp 0.07s cubic-bezier(0.4, 0, 1, 1) forwards;
     }
 
     @keyframes dropDown {
-      from { transform: scaleY(0); }
-      to   { transform: scaleY(1); }
+      0%   { transform: scaleY(0);    }
+      55%  { transform: scaleY(1.07); }
+      75%  { transform: scaleY(0.97); }
+      100% { transform: scaleY(1);    }
     }
 
     @keyframes collapseUp {
-      from { transform: scaleY(1); }
-      to   { transform: scaleY(0); }
+      0%   { transform: scaleY(1); }
+      100% { transform: scaleY(0); }
     }
 
-    .pill.drop input,
-    .pill.drop .esc-hint {
-      animation: fadeIn 0.18s ease 0.16s both;
+    .pill.drop input {
+      animation: fadeIn 0.1s ease 0.12s both;
     }
 
     @keyframes fadeIn {

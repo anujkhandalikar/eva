@@ -7,7 +7,14 @@
       "Bash(node -e \"console.log\\(require\\('/Users/anujk/eva/electron/node_modules/electron/package.json'\\).version\\)\")",
       "Bash(node -e \"process.stdout.write\\(process.arch\\)\")",
       "Bash(node-gyp configure *)",
-      "Bash(npx node-gyp *)"
+      "Bash(npx node-gyp *)",
+      "Bash(npm ls *)",
+      "Bash(chmod +x /Users/anujk/eva/start.sh)",
+      "Bash(mkdir -p ~/tools)",
+      "Bash(git clone *)"
+    ],
+    "additionalDirectories": [
+      "/Users/anujk/eva/app/api/tasks/[id]"
     ]
   }
 }
