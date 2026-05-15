@@ -2,14 +2,14 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as path from 'path';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 
-const native: { moveToNotch: (handle: Buffer, w: number, h: number) => void } =
+const native: { placeInNotch: (handle: Buffer, w: number, h: number) => void } =
   require('./build/Release/window_native.node');
 
 let mainWindow: BrowserWindow | null = null;
 let openedViaHotkey = false;
 
-const W = 220;
-const H = 46;
+const W = 300;
+const H = 75;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -42,8 +42,24 @@ function createWindow() {
 function showOverlay(grabFocus = false) {
   if (!mainWindow || mainWindow.isVisible()) return;
   openedViaHotkey = grabFocus;
+
+  const display = screen.getPrimaryDisplay();
+  const menuBarH = display.workArea.y;
+  const x = Math.round(display.bounds.width / 2 - W / 2);
+
   mainWindow.show();
-  native.moveToNotch(mainWindow.getNativeWindowHandle(), W, H);
+  native.placeInNotch(mainWindow.getNativeWindowHandle(), W, H);
+
+  const actualPos = mainWindow.getPosition();
+  const actualSize = mainWindow.getSize();
+  require('fs').writeFileSync('/tmp/eva-debug.json', JSON.stringify({
+    bounds: display.bounds,
+    workArea: display.workArea,
+    menuBarH,
+    requested: { x, y: menuBarH, w: W, h: H },
+    actual: { pos: actualPos, size: actualSize },
+  }, null, 2));
+
   if (grabFocus) mainWindow.focus();
   mainWindow.webContents.send('did-show');
 }

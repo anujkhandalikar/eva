@@ -1,13 +1,16 @@
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h>
 #include <napi.h>
 
-// Takes the NSView* handle from Electron's getNativeWindowHandle(),
-// sets the window level above the menu bar, and positions it flush
-// at the top of the screen using AppKit (bottom-left) coordinates.
-Napi::Value MoveToNotch(const Napi::CallbackInfo& info) {
+// Override that returns the rect unchanged — bypasses macOS work-area constraint
+static NSRect unconstrainedRect(id self, SEL _cmd, NSRect frameRect, NSScreen* screen) {
+    return frameRect;
+}
+
+Napi::Value PlaceInNotch(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 1 || !info[0].IsBuffer()) {
+    if (info.Length() < 3 || !info[0].IsBuffer()) {
         Napi::TypeError::New(env, "Expected: buffer, width, height").ThrowAsJavaScriptException();
         return env.Undefined();
     }
@@ -19,21 +22,34 @@ Napi::Value MoveToNotch(const Napi::CallbackInfo& info) {
     NSWindow* window = [view window];
     if (!window) return env.Undefined();
 
-    double targetW = (info.Length() > 1 && info[1].IsNumber())
-        ? info[1].As<Napi::Number>().DoubleValue() : window.frame.size.width;
-    double targetH = (info.Length() > 2 && info[2].IsNumber())
-        ? info[2].As<Napi::Number>().DoubleValue() : window.frame.size.height;
+    double targetW = info[1].As<Napi::Number>().DoubleValue();
+    double targetH = info[2].As<Napi::Number>().DoubleValue();
 
-    // firstObject = primary screen (the one with the menu bar / notch)
+    // ── ISA swizzle: create a per-window subclass that removes frame constraints ──
+    NSString* subclassName = [NSString stringWithFormat:@"EvaNotchWindow_%p", (void*)window];
+    Class subclass = objc_lookUpClass([subclassName UTF8String]);
+
+    if (!subclass) {
+        subclass = objc_allocateClassPair([window class], [subclassName UTF8String], 0);
+        // Copy the type encoding from the original method so the override is ABI-compatible
+        Method original = class_getInstanceMethod([window class], @selector(constrainFrameRect:toScreen:));
+        class_addMethod(subclass,
+            @selector(constrainFrameRect:toScreen:),
+            (IMP)unconstrainedRect,
+            method_getTypeEncoding(original));
+        objc_registerClassPair(subclass);
+    }
+
+    // Hot-swap the window's class — affects only this instance
+    object_setClass(window, subclass);
+
+    // ── Position flush in the notch (AppKit: y=0 is bottom-left) ──
     NSScreen* screen = [[NSScreen screens] firstObject];
-    NSRect screenFrame = [screen frame]; // AppKit: origin bottom-left, may be non-zero
+    NSRect f = [screen frame];
+    double x = f.origin.x + round((f.size.width - targetW) / 2.0);
+    double y = f.origin.y + f.size.height - targetH; // top of screen
 
-    // Account for screen origin (non-zero on secondary displays)
-    double x = screenFrame.origin.x + round((screenFrame.size.width - targetW) / 2.0);
-    double y = screenFrame.origin.y + screenFrame.size.height - targetH; // flush at top
-
-    // Level above menu bar (NSMainMenuWindowLevel = 24, NSScreenSaverWindowLevel = 1000)
-    [window setLevel:NSScreenSaverWindowLevel + 1];
+    [window setLevel:NSStatusWindowLevel];
     [window setCollectionBehavior:
         NSWindowCollectionBehaviorCanJoinAllSpaces  |
         NSWindowCollectionBehaviorFullScreenAuxiliary |
@@ -42,14 +58,14 @@ Napi::Value MoveToNotch(const Napi::CallbackInfo& info) {
     ];
     [window setHasShadow:NO];
     [window setOpaque:NO];
-    [window setBackgroundColor:[NSColor clearColor]];
+    [window setBackgroundColor:[NSColor blackColor]];
     [window setFrame:NSMakeRect(x, y, targetW, targetH) display:YES animate:NO];
 
     return env.Undefined();
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-    exports.Set(Napi::String::New(env, "moveToNotch"), Napi::Function::New(env, MoveToNotch));
+    exports.Set(Napi::String::New(env, "placeInNotch"), Napi::Function::New(env, PlaceInNotch));
     return exports;
 }
 

@@ -70,7 +70,7 @@ function dismiss() {
     pill.classList.add('collapse');
     setTimeout(() => ipcRenderer.send('hide-window'), 230);
 }
-const COLORS = ['#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#be123c', '#ff6b8a', '#fff1f2'];
+const COLORS = ['#dc2626', '#b91c1c', '#ef4444', '#fca5a5', '#7f1d1d', '#f87171', '#fee2e2'];
 let particles = [];
 let animFrame = null;
 function spawnConfetti() {

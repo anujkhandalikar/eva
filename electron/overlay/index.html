@@ -3,15 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <title>Eva</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       overflow: hidden;
       background: transparent;
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
       -webkit-app-region: drag;
       height: 100vh;
     }
@@ -19,11 +17,13 @@
     /* ── Input panel — drops from notch ── */
     .pill {
       width: 100%;
-      background: #000;
+      background: #000000;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
       border-radius: 0 0 14px 14px;
       display: flex;
-      align-items: center;
-      padding: 0 14px;
+      align-items: flex-end;
+      padding: 0 14px 14px 14px;
       height: 100vh;
       position: relative;
       transform-origin: top center;
@@ -71,7 +71,7 @@
       font-feature-settings: "cv02","cv03","cv04","cv11";
       outline: none;
       -webkit-app-region: no-drag;
-      caret-color: #e11d48;
+      caret-color: #dc2626;
       transition: font-weight 0.1s ease;
     }
 
@@ -91,10 +91,11 @@
     .notch-confirm {
       position: fixed;
       inset: 0;
-      background: #000;
+      background: #000000;
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: center;
+      padding-bottom: 14px;
       gap: 6px;
       opacity: 0;
       pointer-events: none;
@@ -114,7 +115,7 @@
     .notch-confirm .tick {
       width: 14px; height: 14px;
       border-radius: 50%;
-      background: #e11d48;
+      background: #dc2626;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
