@@ -2,17 +2,23 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as path from 'path';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 
+const native: { moveToNotch: (handle: Buffer, w: number, h: number) => void } =
+  require('./build/Release/window_native.node');
+
 let mainWindow: BrowserWindow | null = null;
-let lastCtrlPressTime = 0;
-const DOUBLE_TAP_THRESHOLD = 400; // ms
+let openedViaHotkey = false;
+
+const W = 220;
+const H = 46;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 600,
-    height: 60,
+    width: W,
+    height: H,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
+    hasShadow: false,
     show: false,
     skipTaskbar: true,
     webPreferences: {
@@ -21,51 +27,94 @@ function createWindow() {
     },
   });
 
-  // Make window appear on ALL Spaces so it never triggers a Space switch
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-
   mainWindow.loadFile(path.join(__dirname, 'overlay/index.html'));
 
+  // Only hide on blur when the window has focus (user clicked away intentionally)
   mainWindow.on('blur', () => {
+    if (mainWindow?.isFocused()) return;
     mainWindow?.hide();
+    mainWindow?.webContents.send('did-hide');
   });
 }
 
-function toggleOverlay() {
-  if (mainWindow) {
-    if (mainWindow.isVisible()) {
-      mainWindow.hide();
-    } else {
-      // Show first, then reposition — macOS ignores setPosition on hidden windows
-      mainWindow.show();
+function showOverlay(grabFocus = false) {
+  if (!mainWindow || mainWindow.isVisible()) return;
+  openedViaHotkey = grabFocus;
+  mainWindow.show();
+  native.moveToNotch(mainWindow.getNativeWindowHandle(), W, H);
+  if (grabFocus) mainWindow.focus();
+  mainWindow.webContents.send('did-show');
+}
 
-      const cursorPoint = screen.getCursorScreenPoint();
-      const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
-      const { x, y, width } = activeDisplay.workArea;
-      const winWidth = 600;
-      mainWindow.setPosition(
-        Math.round(x + width / 2 - winWidth / 2),
-        Math.round(y + 120)
-      );
-
-      mainWindow.focus();
-    }
-  }
+function hideOverlay() {
+  if (!mainWindow || !mainWindow.isVisible()) return;
+  openedViaHotkey = false;
+  mainWindow.hide();
+  mainWindow.webContents.send('did-hide');
 }
 
 app.whenReady().then(() => {
   createWindow();
 
-  // Listen for double tap Control using uiohook-napi
-  // (native addon that runs inside Electron process — no separate binary needed)
+  const display = screen.getPrimaryDisplay();
+  const screenCenterX = display.bounds.width / 2;
+  const menuBarH = display.workArea.y;
+  // hover zone: notch width ± generous margin, full expanded panel height
+  const NOTCH_HALF_W = 140;
+  const HOVER_ZONE_H = menuBarH + H + 10;
+
+  let ctrlDown = false;
+  let otherKeyWhileCtrl = false;
+  let hoverEnterTimer: ReturnType<typeof setTimeout> | null = null;
+  let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ── Single Ctrl tap ──
   uIOhook.on('keydown', (e) => {
     if (e.keycode === UiohookKey.Ctrl || e.keycode === UiohookKey.CtrlRight) {
-      const now = Date.now();
-      if (now - lastCtrlPressTime < DOUBLE_TAP_THRESHOLD) {
-        toggleOverlay();
-        lastCtrlPressTime = 0; // reset to prevent triple-tap triggering twice
-      } else {
-        lastCtrlPressTime = now;
+      ctrlDown = true;
+      otherKeyWhileCtrl = false;
+    } else if (ctrlDown) {
+      otherKeyWhileCtrl = true;
+    }
+  });
+
+  uIOhook.on('keyup', (e) => {
+    if (e.keycode === UiohookKey.Ctrl || e.keycode === UiohookKey.CtrlRight) {
+      if (!otherKeyWhileCtrl) {
+        if (mainWindow?.isVisible()) hideOverlay();
+        else showOverlay(true); // ctrl tap grabs focus so user can type immediately
+      }
+      ctrlDown = false;
+      otherKeyWhileCtrl = false;
+    }
+  });
+
+  // ── Hover to activate / deactivate ──
+  uIOhook.on('mousemove', (e) => {
+    const withinX = Math.abs(e.x - screenCenterX) <= NOTCH_HALF_W;
+    // activate only when cursor is in the physical notch/menu-bar strip
+    const inNotch = withinX && e.y <= menuBarH;
+    // stay open while cursor is anywhere in the expanded panel too
+    const inPanel = withinX && e.y <= HOVER_ZONE_H;
+
+    if (inNotch) {
+      if (hoverLeaveTimer) { clearTimeout(hoverLeaveTimer); hoverLeaveTimer = null; }
+      if (!mainWindow?.isVisible() && !hoverEnterTimer) {
+        hoverEnterTimer = setTimeout(() => {
+          showOverlay(false); // hover: don't steal focus from current app
+          hoverEnterTimer = null;
+        }, 150);
+      }
+    } else {
+      if (hoverEnterTimer) { clearTimeout(hoverEnterTimer); hoverEnterTimer = null; }
+      // don't auto-close if user opened via Ctrl — they're in control
+      if (!inPanel && mainWindow?.isVisible() && !openedViaHotkey && !hoverLeaveTimer) {
+        hoverLeaveTimer = setTimeout(() => {
+          hideOverlay();
+          hoverLeaveTimer = null;
+        }, 200);
       }
     }
   });
@@ -73,16 +122,12 @@ app.whenReady().then(() => {
   uIOhook.start();
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('will-quit', () => {
@@ -91,20 +136,13 @@ app.on('will-quit', () => {
 
 ipcMain.on('submit-task', async (event, task) => {
   console.log('Task captured:', task);
-  mainWindow?.hide();
-  
   try {
     const response = await fetch('http://localhost:3000/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ input: task }),
     });
-    
-    if (!response.ok) {
-      console.error('Failed to submit task:', await response.text());
-    } else {
-      console.log('Successfully submitted task');
-    }
+    if (!response.ok) console.error('Failed to submit task:', await response.text());
   } catch (error) {
     console.error('Network error:', error);
   }
@@ -112,4 +150,11 @@ ipcMain.on('submit-task', async (event, task) => {
 
 ipcMain.on('hide-window', () => {
   mainWindow?.hide();
+  mainWindow?.webContents.send('did-hide');
+});
+
+ipcMain.on('contract-to-notch', () => {
+  if (!mainWindow) return;
+  mainWindow.setSize(W, H);
+  mainWindow.webContents.send('show-confirm');
 });

@@ -6,3 +6,4 @@ export const inngest = new Inngest({ id: "eva" });
 export type TaskCreatedEvent = { id: string; input: string };
 export type BlinkitOtpSubmittedEvent = { taskId: string; otp: string };
 export type BlinkitOrderApprovedEvent = { taskId: string };
+export type CalendarActionApprovedEvent = { taskId: string };

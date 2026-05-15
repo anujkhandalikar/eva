@@ -5,6 +5,8 @@ import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { X, Check } from 'lucide-react';
 import { Task } from './TaskCard';
 import BlinkitCartPreview from './BlinkitCartPreview';
+import CalendarActionPreview from './CalendarActionPreview';
+import WhatsAppMessagePreview from './WhatsAppMessagePreview';
 import OtpInput from './OtpInput';
 
 interface SwipeableTaskCardProps {
@@ -184,6 +186,18 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
           {task.task_type === 'blinkit_order' && task.proposed_cart && task.status === 'needs_approval' && (
             <div className="shrink-0">
               <BlinkitCartPreview cart={task.proposed_cart} taskId={task.id} />
+            </div>
+          )}
+
+          {task.task_type === 'calendar' && task.calendar_action && task.status === 'needs_approval' && (
+            <div className="shrink-0">
+              <CalendarActionPreview action={task.calendar_action} taskId={task.id} />
+            </div>
+          )}
+
+          {task.task_type === 'whatsapp' && task.proposed_message && task.status === 'needs_approval' && (
+            <div className="shrink-0">
+              <WhatsAppMessagePreview message={task.proposed_message} taskId={task.id} />
             </div>
           )}
 
