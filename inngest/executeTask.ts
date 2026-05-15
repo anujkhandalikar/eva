@@ -1,6 +1,6 @@
 import { inngest } from "./client";
 import { supabase } from "@/lib/supabase";
-import { detectIntent, processTask } from "@/lib/openai";
+import { classifyEntry, detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
 import { listEvents, createEvent } from "@/lib/googleCalendar";
@@ -32,6 +32,33 @@ export const executeTask = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { id, input } = event.data;
+
+    // Classify first: thought (capture-only) vs task (run intent router)
+    const classification = await step.run("classify-entry", async () => {
+      const result = await classifyEntry(input);
+      console.log(`[classify] "${input}" →`, JSON.stringify(result));
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          entry_type: result.entry_type,
+          tags: result.tags,
+          classification_confidence: result.confidence,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      return result;
+    });
+
+    if (classification.entry_type === "thought") {
+      await step.run("mark-captured", async () => {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ status: "captured" })
+          .eq("id", id);
+        if (error) throw error;
+      });
+      return { success: true, captured: true };
+    }
 
     await step.run("update-status-running", async () => {
       const { error } = await supabase

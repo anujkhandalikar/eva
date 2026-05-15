@@ -9,7 +9,7 @@ import WhatsAppMessagePreview from './WhatsAppMessagePreview';
 import type { CalendarAction } from '@/lib/openai';
 import type { ProposedMessage } from '@/lib/whatsapp';
 
-type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed' | 'needs_otp';
+type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed' | 'needs_otp' | 'captured';
 
 export type CartItem = {
   requested: string;
@@ -36,6 +36,10 @@ export type Task = {
   calendar_action?: CalendarAction | null;
   calendar_event_id?: string | null;
   proposed_message?: ProposedMessage | null;
+  entry_type?: 'task' | 'thought';
+  tags?: string[];
+  classification_confidence?: number | null;
+  promoted_to_task_id?: string | null;
 };
 
 const statusDotColor: Record<TaskStatus, string> = {
@@ -45,6 +49,7 @@ const statusDotColor: Record<TaskStatus, string> = {
   needs_approval: '#eab308',
   failed: '#ef4444',
   needs_otp: '#3b82f6',
+  captured: 'rgba(255,255,255,0.2)',
 };
 
 const statusLabels: Record<TaskStatus, string> = {
@@ -54,6 +59,7 @@ const statusLabels: Record<TaskStatus, string> = {
   needs_approval: 'Needs Approval',
   failed: 'Failed',
   needs_otp: 'Waiting for OTP',
+  captured: 'Captured',
 };
 
 function stripLinks(text: string): string {

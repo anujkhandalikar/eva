@@ -65,6 +65,106 @@ export type TaskIntent =
   | WhatsAppSendIntent
   | WhatsAppReadIntent;
 
+export const THOUGHT_TAGS = [
+  "product",
+  "personal",
+  "idea",
+  "followup",
+  "gripe",
+  "person",
+  "decision",
+  "question",
+  "reference",
+] as const;
+
+export type ThoughtTag = (typeof THOUGHT_TAGS)[number];
+
+export type EntryClassification = {
+  entry_type: "thought" | "task";
+  tags: ThoughtTag[];
+  confidence: number;
+};
+
+export async function classifyEntry(input: string): Promise<EntryClassification> {
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `You classify a user's input from a personal hotkey overlay as either a "thought" or a "task".
+
+THOUGHT = a note, idea, observation, reflection, reminder-to-self, gripe, question for later. The user is getting something out of their head. They do NOT want Eva to act on it now.
+
+TASK = an imperative command for Eva to research, order, schedule, send, look up, summarize, or otherwise act NOW.
+
+Disambiguation rules:
+- Imperative verb at the start (find, book, send, order, schedule, list, summarize, check, what is, what did, look up) → task
+- Declarative, past tense, or self-directed ("I should", "remember", "remind me", "X is broken", "wonder if") → thought
+- When genuinely ambiguous, prefer "thought" — the user can promote it later. Avoid false-positive task execution.
+
+If thought, assign 0–3 tags from this exact fixed vocabulary (no other tags allowed):
+product, personal, idea, followup, gripe, person, decision, question, reference
+
+If task, return tags as an empty array.
+
+Confidence is your own 0..1 estimate of how sure you are about entry_type.
+
+Output ONLY valid JSON:
+{"entry_type":"thought"|"task","tags":[...],"confidence":0..1}
+
+Examples:
+"find best ANC headphones under $300" → {"entry_type":"task","tags":[],"confidence":0.95}
+"sarah owes me $200" → {"entry_type":"thought","tags":["person","followup"],"confidence":0.9}
+"onboarding feels broken — users skip step 2" → {"entry_type":"thought","tags":["product","idea"],"confidence":0.92}
+"book table at Bestia friday 8pm" → {"entry_type":"task","tags":[],"confidence":0.98}
+"what did cursor ship this week" → {"entry_type":"task","tags":[],"confidence":0.9}
+"i should write a blog post about latency budgets" → {"entry_type":"thought","tags":["idea"],"confidence":0.93}
+"remind me to call mom" → {"entry_type":"thought","tags":["personal","followup"],"confidence":0.9}
+"summarize the linear thread on auth" → {"entry_type":"task","tags":[],"confidence":0.92}`,
+      },
+      { role: "user", content: input },
+    ],
+  });
+
+  const text = response.choices[0]?.message?.content ?? "";
+  try {
+    const parsed = JSON.parse(text) as {
+      entry_type?: string;
+      tags?: unknown;
+      confidence?: unknown;
+    };
+
+    const entry_type: "thought" | "task" =
+      parsed.entry_type === "thought" ? "thought" : "task";
+
+    const rawTags = Array.isArray(parsed.tags) ? parsed.tags : [];
+    const tags = rawTags
+      .filter((t): t is string => typeof t === "string")
+      .filter((t): t is ThoughtTag =>
+        (THOUGHT_TAGS as readonly string[]).includes(t)
+      )
+      .slice(0, 3);
+
+    const confidence =
+      typeof parsed.confidence === "number" &&
+      parsed.confidence >= 0 &&
+      parsed.confidence <= 1
+        ? parsed.confidence
+        : 0.5;
+
+    return {
+      entry_type,
+      tags: entry_type === "task" ? [] : tags,
+      confidence,
+    };
+  } catch {
+    return { entry_type: "task", tags: [], confidence: 0 };
+  }
+}
+
 export async function detectIntent(input: string): Promise<TaskIntent> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 

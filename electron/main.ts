@@ -48,6 +48,10 @@ function showOverlay(grabFocus = false) {
   const menuBarH = display.workArea.y;
   const x = Math.round(display.bounds.width / 2 - W / 2);
 
+  // Re-assert window level and workspace visibility on every show — macOS can
+  // demote the window level after Mission Control / Space switches.
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   mainWindow.show();
   mainWindow.setSize(W, H);
   native.placeInNotch(mainWindow.getNativeWindowHandle(), W, H);

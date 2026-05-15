@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import TaskCard, { Task } from '@/app/components/TaskCard';
+import ThoughtCard from '@/app/components/ThoughtCard';
 import ViewToggle, { ViewMode } from '@/app/components/ViewToggle';
 import CardStack from '@/app/components/CardStack';
 
@@ -99,19 +100,26 @@ export default function Dashboard() {
               to capture one.
             </div>
           ) : view === 'cards' ? (
-            <CardStack tasks={tasks} onDeleteTask={handleDeleteTask} />
+            <CardStack
+              tasks={tasks.filter((t) => t.entry_type !== 'thought')}
+              onDeleteTask={handleDeleteTask}
+            />
           ) : (
             <div className="h-full overflow-y-auto flex flex-col">
               <div
                 className="text-xs font-medium mb-6 flex items-center justify-between uppercase tracking-widest"
                 style={{ color: 'rgba(255,255,255,0.18)' }}
               >
-                <span>Tasks</span>
+                <span>Stream</span>
                 <span>{tasks.length}</span>
               </div>
-              {tasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
-              ))}
+              {tasks.map((entry) =>
+                entry.entry_type === 'thought' ? (
+                  <ThoughtCard key={entry.id} task={entry} onDelete={handleDeleteTask} />
+                ) : (
+                  <TaskCard key={entry.id} task={entry} />
+                )
+              )}
             </div>
           )}
         </div>

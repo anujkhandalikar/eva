@@ -22,6 +22,17 @@ export async function DELETE(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
+    const entryType = searchParams.get('entry_type');
+
+    if (entryType === 'thought') {
+      const { data, error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('entry_type', 'thought')
+        .select('id');
+      if (error) throw error;
+      return NextResponse.json({ count: data.length });
+    }
 
     const allowed = ['failed', 'done', 'pending'];
     if (!status || !allowed.includes(status)) {
@@ -34,6 +45,7 @@ export async function DELETE(req: Request) {
       .from('tasks')
       .delete()
       .in('status', statuses)
+      .eq('entry_type', 'task')
       .select('id');
 
     if (error) throw error;

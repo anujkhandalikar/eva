@@ -23,6 +23,7 @@ const statusDotColor: Record<Task['status'], string> = {
   needs_approval: '#eab308',
   failed: '#ef4444',
   needs_otp: '#3b82f6',
+  captured: 'rgba(255,255,255,0.2)',
 };
 
 const statusLabels: Record<Task['status'], string> = {
@@ -32,6 +33,7 @@ const statusLabels: Record<Task['status'], string> = {
   needs_approval: 'Needs Approval',
   failed: 'Failed',
   needs_otp: 'Waiting for OTP',
+  captured: 'Captured',
 };
 
 function stripLinks(text: string): string {
