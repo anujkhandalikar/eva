@@ -210,12 +210,14 @@ ipcMain.on('open-task', () => {
   shell.openExternal('http://localhost:3000');
 });
 
-ipcMain.on('clear-tasks', async (_, status: string) => {
+ipcMain.on('clear-tasks', async (_, target: string) => {
   try {
-    const res = await fetch(`http://localhost:3000/api/tasks?status=${status}`, {
-      method: 'DELETE',
-    });
-    const data = await res.json() as { count?: number; error?: string };
+    const url =
+      target === 'thoughts'
+        ? 'http://localhost:3000/api/tasks?entry_type=thought'
+        : `http://localhost:3000/api/tasks?status=${target}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    const data = (await res.json()) as { count?: number; error?: string };
     mainWindow?.webContents.send('clear-result', data.count ?? 0);
   } catch {
     mainWindow?.webContents.send('clear-result', -1);
