@@ -49,6 +49,7 @@ function showOverlay(grabFocus = false) {
   const x = Math.round(display.bounds.width / 2 - W / 2);
 
   mainWindow.show();
+  mainWindow.setSize(W, H);
   native.placeInNotch(mainWindow.getNativeWindowHandle(), W, H);
 
   const actualPos = mainWindow.getPosition();
@@ -173,12 +174,15 @@ ipcMain.on('hide-window', () => {
 ipcMain.on('contract-to-notch', () => {
   if (!mainWindow) return;
   mainWindow.setSize(W, H);
+  native.placeInNotch(mainWindow.getNativeWindowHandle(), W, H);
   mainWindow.webContents.send('show-confirm');
 });
 
 ipcMain.on('expand-width', (_, width: number) => {
   if (!mainWindow) return;
-  native.placeInNotch(mainWindow.getNativeWindowHandle(), width, H);
+  const currentH = mainWindow.getSize()[1];
+  mainWindow.setSize(width, currentH);
+  native.placeInNotch(mainWindow.getNativeWindowHandle(), width, currentH);
 });
 
 ipcMain.on('fetch-tasks', async () => {
@@ -194,6 +198,7 @@ ipcMain.on('fetch-tasks', async () => {
 
 ipcMain.on('resize-window', (_, height: number) => {
   if (!mainWindow) return;
+  mainWindow.setSize(W, height);
   native.placeInNotch(mainWindow.getNativeWindowHandle(), W, height);
 });
 

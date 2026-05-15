@@ -8,10 +8,23 @@ const ctx = confettiCanvas.getContext('2d');
 const browseBtn = document.getElementById('browseBtn');
 const browseBadge = document.getElementById('browseBadge');
 const taskList = document.getElementById('taskList');
+const measureSpan = document.getElementById('inputMeasure');
 const BASE_H = 75;
+const BASE_W = 300;
+const MAX_W = 620;
+const INPUT_OVERHEAD = 82; // left-pad + right-pad + gap + browse-btn + buffer
 const ROW_H = 30;
 const PANEL_EXTRA = 20; // separator + list padding
 const MAX_H = 285; // cap — panel scrolls beyond this
+function updateWidth() {
+    measureSpan.textContent = input.value;
+    const textW = measureSpan.offsetWidth;
+    const newW = Math.min(Math.max(BASE_W, textW + INPUT_OVERHEAD), MAX_W);
+    ipcRenderer.send('expand-width', newW);
+}
+function resetWidth() {
+    ipcRenderer.send('expand-width', BASE_W);
+}
 let browseOpen = false;
 let pendingBrowseOpen = false;
 let storedTasks = [];
@@ -67,6 +80,7 @@ ipcRenderer.on('did-hide', () => {
     browseOpen = false;
     pendingBrowseOpen = false;
     browseBtn.classList.remove('active');
+    resetWidth();
 });
 // ── Notch confirm ──
 ipcRenderer.on('show-confirm', () => {
@@ -177,6 +191,7 @@ browseBtn.addEventListener('click', () => {
 // ── Input handlers ──
 input.addEventListener('input', () => {
     input.classList.toggle('has-text', input.value.length > 0);
+    updateWidth();
 });
 input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter')
@@ -189,6 +204,7 @@ function dismiss() {
         closeBrowse();
         return;
     }
+    resetWidth();
     pill.classList.remove('drop');
     void pill.offsetHeight;
     pill.classList.add('collapse');
@@ -256,6 +272,7 @@ function collapseAndConfirm(message) {
         browseOpen = false;
         browseBtn.classList.remove('active');
     }
+    resetWidth();
     pill.classList.remove('drop');
     void pill.offsetHeight;
     pill.classList.add('collapse');

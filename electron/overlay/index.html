@@ -212,6 +212,7 @@
       position: fixed;
       inset: 0;
       background: #000000;
+      border-radius: 0 0 14px 14px;
       display: flex;
       align-items: flex-end;
       justify-content: center;
@@ -247,6 +248,18 @@
       letter-spacing: -0.01em;
     }
 
+    /* ── Text measurement ── */
+    #inputMeasure {
+      position: absolute;
+      visibility: hidden;
+      white-space: pre;
+      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      pointer-events: none;
+    }
+
     /* ── Confetti ── */
     #confetti {
       position: absolute;
@@ -256,6 +269,8 @@
   </style>
 </head>
 <body>
+  <span id="inputMeasure" aria-hidden="true"></span>
+
   <!-- input panel -->
   <div class="pill" id="pill">
     <div class="input-row">

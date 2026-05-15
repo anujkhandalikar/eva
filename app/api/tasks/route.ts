@@ -28,10 +28,12 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
+    const statuses = status === 'pending' ? ['pending', 'needs_approval'] : [status];
+
     const { data, error } = await supabase
       .from('tasks')
       .delete()
-      .eq('status', status)
+      .in('status', statuses)
       .select('id');
 
     if (error) throw error;
