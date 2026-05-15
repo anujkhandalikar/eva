@@ -8,13 +8,14 @@
 
     body {
       overflow: hidden;
-      background: transparent;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      background: #000000;
+      border-radius: 0 0 14px 14px;
+      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
       -webkit-app-region: drag;
       height: 100vh;
     }
 
-    /* ── Input panel — drops from notch ── */
+    /* ── Pill — drops from notch ── */
     .pill {
       width: 100%;
       background: #000000;
@@ -22,21 +23,17 @@
       backdrop-filter: none;
       border-radius: 0 0 14px 14px;
       display: flex;
-      align-items: flex-end;
-      padding: 0 14px 14px 14px;
+      flex-direction: column;
+      align-items: stretch;
       height: 100vh;
+      overflow: hidden;
       position: relative;
       transform-origin: top center;
       transform: scaleY(0);
     }
 
-    .pill.drop {
-      animation: dropDown 0.2s linear forwards;
-    }
-
-    .pill.collapse {
-      animation: collapseUp 0.07s cubic-bezier(0.4, 0, 1, 1) forwards;
-    }
+    .pill.drop    { animation: dropDown 0.2s linear forwards; }
+    .pill.collapse { animation: collapseUp 0.07s cubic-bezier(0.4, 0, 1, 1) forwards; }
 
     @keyframes dropDown {
       0%   { transform: scaleY(0);    }
@@ -50,13 +47,20 @@
       100% { transform: scaleY(0); }
     }
 
-    .pill.drop input {
-      animation: fadeIn 0.1s ease 0.12s both;
-    }
+    .pill.drop .input-row { animation: fadeIn 0.1s ease 0.12s both; }
 
     @keyframes fadeIn {
       from { opacity: 0; }
       to   { opacity: 1; }
+    }
+
+    /* ── Input row — fixed 75px, visually unchanged from before ── */
+    .input-row {
+      flex: 0 0 75px;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 14px 14px 14px;
+      gap: 8px;
     }
 
     input {
@@ -64,9 +68,9 @@
       background: transparent;
       border: none;
       color: rgba(255,255,255,0.9);
-      font-family: "Inter", -apple-system, sans-serif;
+      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
       font-size: 15px;
-      font-weight: 400;
+      font-weight: 700;
       letter-spacing: -0.02em;
       font-feature-settings: "cv02","cv03","cv04","cv11";
       outline: none;
@@ -75,16 +79,127 @@
       transition: font-weight 0.1s ease;
     }
 
-    input.has-text { font-weight: 500; }
+    input.has-text { font-weight: 700; }
     input::placeholder { color: rgba(255,255,255,0.22); font-weight: 300; }
 
-    .esc-hint {
-      font-size: 9px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.16);
-      letter-spacing: 0.06em;
-      flex-shrink: 0;
+    /* ── Browse button ── */
+    .browse-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.0);
+      cursor: pointer;
       -webkit-app-region: no-drag;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      flex-shrink: 0;
+      position: relative;
+      margin-bottom: 2px;
+      transition: color 0.2s ease;
+    }
+
+    .browse-btn.has-tasks { color: rgba(255,255,255,0.2); }
+    .browse-btn.has-tasks:hover { color: rgba(255,255,255,0.45); }
+    .browse-btn.active { color: rgba(255,255,255,0.6); }
+
+    .browse-badge {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      background: #dc2626;
+      border-radius: 99px;
+      font-size: 7px;
+      font-weight: 700;
+      color: white;
+      min-width: 12px;
+      height: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 2px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .browse-badge.visible { opacity: 1; }
+    .browse-badge.pulse   { animation: badgePulse 1.4s ease-in-out infinite; }
+
+    @keyframes badgePulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.3; }
+    }
+
+    /* ── Task panel — slides in below input row ── */
+    .task-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .task-separator {
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin: 0 10px;
+      flex-shrink: 0;
+    }
+
+    .task-list {
+      flex: 1;
+      overflow: hidden;
+      padding: 4px 6px 8px;
+    }
+
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      cursor: pointer;
+      border-radius: 6px;
+      -webkit-app-region: no-drag;
+      transition: background 0.1s;
+    }
+
+    .task-row:hover { background: rgba(255,255,255,0.06); }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.pending        { background: rgba(255,255,255,0.2); }
+    .status-dot.running        { background: rgba(255,255,255,0.5); animation: dotPulse 1s ease-in-out infinite; }
+    .status-dot.done           { background: #22c55e; }
+    .status-dot.needs_approval { background: #eab308; }
+    .status-dot.failed         { background: #ef4444; }
+
+    @keyframes dotPulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.2; }
+    }
+
+    .task-name {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+
+    .task-time {
+      font-size: 10px;
+      color: rgba(255,255,255,0.18);
+      flex-shrink: 0;
+      letter-spacing: 0.02em;
     }
 
     /* ── Notch confirmation — shows after collapse ── */
@@ -101,9 +216,7 @@
       pointer-events: none;
     }
 
-    .notch-confirm.show {
-      animation: confirmPop 1.6s ease forwards;
-    }
+    .notch-confirm.show { animation: confirmPop 1.6s ease forwards; }
 
     @keyframes confirmPop {
       0%   { opacity: 0; }
@@ -113,19 +226,19 @@
     }
 
     .notch-confirm .tick {
-      width: 14px; height: 14px;
+      width: 16px; height: 16px;
       border-radius: 50%;
-      background: #dc2626;
+      background: #16a34a;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
 
-    .notch-confirm .tick svg { width: 7px; height: 7px; }
+    .notch-confirm .tick svg { width: 8px; height: 8px; }
 
     .notch-confirm .text {
-      font-size: 11px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.7);
+      font-size: 15px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
       letter-spacing: -0.01em;
     }
 
@@ -140,7 +253,23 @@
 <body>
   <!-- input panel -->
   <div class="pill" id="pill">
-    <input type="text" id="taskInput" autocomplete="off" spellcheck="false">
+    <div class="input-row">
+      <input type="text" id="taskInput" autocomplete="off" spellcheck="false">
+      <button class="browse-btn" id="browseBtn" tabindex="-1">
+        <svg width="11" height="9" viewBox="0 0 11 9" fill="currentColor">
+          <rect y="0"    width="11" height="1.5" rx="0.75"/>
+          <rect y="3.75" width="8"  height="1.5" rx="0.75"/>
+          <rect y="7.5"  width="5"  height="1.5" rx="0.75"/>
+        </svg>
+        <span class="browse-badge" id="browseBadge"></span>
+      </button>
+    </div>
+
+    <div class="task-panel" id="taskPanel">
+      <div class="task-separator"></div>
+      <div class="task-list" id="taskList"></div>
+    </div>
+
     <canvas id="confetti"></canvas>
   </div>
 
@@ -151,7 +280,7 @@
         <path d="M1 3.5L3 5.5L6 2" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </div>
-    <span class="text">captured</span>
+    <span class="text">Captured</span>
   </div>
 
   <script src="renderer.js"></script>

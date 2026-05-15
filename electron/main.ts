@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
 import * as path from 'path';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 
@@ -173,4 +173,29 @@ ipcMain.on('contract-to-notch', () => {
   if (!mainWindow) return;
   mainWindow.setSize(W, H);
   mainWindow.webContents.send('show-confirm');
+});
+
+ipcMain.on('expand-width', (_, width: number) => {
+  if (!mainWindow) return;
+  native.placeInNotch(mainWindow.getNativeWindowHandle(), width, H);
+});
+
+ipcMain.on('fetch-tasks', async () => {
+  try {
+    const res = await fetch('http://localhost:3000/api/tasks');
+    const data = await res.json() as { tasks?: unknown[] };
+    const tasks = (data.tasks ?? []).slice(0, 5);
+    mainWindow?.webContents.send('tasks-data', tasks);
+  } catch {
+    mainWindow?.webContents.send('tasks-data', []);
+  }
+});
+
+ipcMain.on('resize-window', (_, height: number) => {
+  if (!mainWindow) return;
+  native.placeInNotch(mainWindow.getNativeWindowHandle(), W, height);
+});
+
+ipcMain.on('open-task', () => {
+  shell.openExternal('http://localhost:3000');
 });

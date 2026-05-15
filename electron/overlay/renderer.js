@@ -5,6 +5,16 @@ const input = document.getElementById('taskInput');
 const notchConfirm = document.getElementById('notchConfirm');
 const confettiCanvas = document.getElementById('confetti');
 const ctx = confettiCanvas.getContext('2d');
+const browseBtn = document.getElementById('browseBtn');
+const browseBadge = document.getElementById('browseBadge');
+const taskList = document.getElementById('taskList');
+const BASE_H = 75;
+const ROW_H = 30;
+const PANEL_EXTRA = 20; // separator + list padding
+let browseOpen = false;
+let pendingBrowseOpen = false;
+let storedTasks = [];
+// ── Placeholders ──
 const placeholders = [
     "Unleash me…",
     "I don't sleep. You do.",
@@ -32,27 +42,116 @@ let placeholderIndex = 0;
 ipcRenderer.on('did-show', () => {
     notchConfirm.className = 'notch-confirm';
     input.value = '';
-    input.style.opacity = '1';
     input.classList.remove('has-text');
     placeholderIndex = (placeholderIndex + 1) % placeholders.length;
     input.placeholder = placeholders[placeholderIndex];
     pill.classList.remove('drop', 'collapse');
     void pill.offsetHeight;
     pill.classList.add('drop');
+    // close browse silently (no animation) since window just opened
+    browseOpen = false;
+    pendingBrowseOpen = false;
+    browseBtn.classList.remove('active');
     setTimeout(() => input.focus(), 60);
+    // fetch tasks for badge
+    ipcRenderer.send('fetch-tasks');
 });
 ipcRenderer.on('did-hide', () => {
     input.value = '';
     input.classList.remove('has-text');
     pill.classList.remove('drop', 'collapse');
+    browseOpen = false;
+    pendingBrowseOpen = false;
+    browseBtn.classList.remove('active');
 });
-// ── Notch confirm (called from main after window contracted) ──
+// ── Notch confirm ──
 ipcRenderer.on('show-confirm', () => {
     notchConfirm.className = 'notch-confirm';
     void notchConfirm.offsetHeight;
     notchConfirm.classList.add('show');
-    // after animation finishes, hide window
     setTimeout(() => ipcRenderer.send('hide-window'), 1650);
+});
+// ── Tasks data ──
+ipcRenderer.on('tasks-data', (_, tasks) => {
+    storedTasks = tasks;
+    updateBadge(tasks);
+    if (pendingBrowseOpen) {
+        pendingBrowseOpen = false;
+        openBrowse(tasks);
+    }
+});
+function updateBadge(tasks) {
+    const count = tasks.length;
+    const hasRunning = tasks.some(t => t.status === 'running' || t.status === 'pending');
+    if (count === 0) {
+        browseBtn.classList.remove('has-tasks');
+        browseBadge.classList.remove('visible', 'pulse');
+        browseBadge.textContent = '';
+        return;
+    }
+    browseBtn.classList.add('has-tasks');
+    browseBadge.textContent = String(count);
+    browseBadge.classList.add('visible');
+    if (hasRunning)
+        browseBadge.classList.add('pulse');
+    else
+        browseBadge.classList.remove('pulse');
+}
+function timeAgo(iso) {
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60)
+        return 'now';
+    if (diff < 3600)
+        return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400)
+        return `${Math.floor(diff / 3600)}h`;
+    return `${Math.floor(diff / 86400)}d`;
+}
+function renderTaskList(tasks) {
+    taskList.innerHTML = '';
+    tasks.forEach(task => {
+        const row = document.createElement('div');
+        row.className = 'task-row';
+        const dot = document.createElement('div');
+        dot.className = `status-dot ${task.status}`;
+        const name = document.createElement('div');
+        name.className = 'task-name';
+        name.textContent = task.input;
+        const time = document.createElement('div');
+        time.className = 'task-time';
+        time.textContent = timeAgo(task.created_at);
+        row.appendChild(dot);
+        row.appendChild(name);
+        row.appendChild(time);
+        row.addEventListener('click', () => {
+            ipcRenderer.send('open-task', task.id);
+        });
+        taskList.appendChild(row);
+    });
+}
+function browseHeight(count) {
+    return BASE_H + PANEL_EXTRA + Math.min(count, 5) * ROW_H;
+}
+function openBrowse(tasks) {
+    browseOpen = true;
+    browseBtn.classList.add('active');
+    renderTaskList(tasks);
+    ipcRenderer.send('resize-window', browseHeight(tasks.length));
+}
+function closeBrowse() {
+    browseOpen = false;
+    browseBtn.classList.remove('active');
+    ipcRenderer.send('resize-window', BASE_H);
+}
+// ── Browse button toggle ──
+browseBtn.addEventListener('click', () => {
+    if (browseOpen) {
+        closeBrowse();
+    }
+    else {
+        pendingBrowseOpen = true;
+        ipcRenderer.send('fetch-tasks');
+    }
 });
 // ── Input handlers ──
 input.addEventListener('input', () => {
@@ -65,12 +164,16 @@ input.addEventListener('keydown', (e) => {
         dismiss();
 });
 function dismiss() {
+    if (browseOpen) {
+        closeBrowse();
+        return;
+    }
     pill.classList.remove('drop');
     void pill.offsetHeight;
     pill.classList.add('collapse');
     setTimeout(() => ipcRenderer.send('hide-window'), 230);
 }
-const COLORS = ['#dc2626', '#b91c1c', '#ef4444', '#fca5a5', '#7f1d1d', '#f87171', '#fee2e2'];
+const COLORS = ['#dc2626', '#ef4444', '#f87171', '#fca5a5', '#b91c1c', '#ff6b8a', '#fff1f2'];
 let particles = [];
 let animFrame = null;
 function spawnConfetti() {
@@ -124,10 +227,13 @@ function submit() {
     ipcRenderer.send('submit-task', task);
     input.value = '';
     input.classList.remove('has-text');
-    // 1. collapse panel immediately
+    // collapse browse first if open, then collapse pill
+    if (browseOpen) {
+        browseOpen = false;
+        browseBtn.classList.remove('active');
+    }
     pill.classList.remove('drop');
     void pill.offsetHeight;
     pill.classList.add('collapse');
-    // 2. contract window after collapse finishes (100ms)
     setTimeout(() => ipcRenderer.send('contract-to-notch'), 110);
 }
