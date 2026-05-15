@@ -403,6 +403,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
                 product_id: sku.id,
                 quantity: item.quantity,
                 unit_price: "",
+                url: sku.url,
               });
               continue;
             }
@@ -470,13 +471,17 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
             const priceMatch = chosen.match(/₹[\d,]+/);
             const nameMatch = chosen.match(/\|\s*(.+?)\s*-\s*₹/);
 
+            const productId = idMatch?.[1] ?? "";
+            const productName = nameMatch?.[1]?.trim() ?? item.name;
+            const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
             cart.push({
               requested: item.name,
-              name: nameMatch?.[1]?.trim() ?? item.name,
-              product_id: idMatch?.[1] ?? "",
+              name: productName,
+              product_id: productId,
               quantity: item.quantity,
               unit_price: priceMatch?.[0] ?? "",
-              not_found: !idMatch?.[1],
+              url: productId ? `https://blinkit.com/prn/${slug}/prid/${productId}` : undefined,
+              not_found: !productId,
             });
           }
         } finally {

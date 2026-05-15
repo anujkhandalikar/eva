@@ -43,7 +43,19 @@ export default function BlinkitCartPreview({ cart, taskId }: BlinkitCartPreviewP
         {foundItems.map((item, i) => (
           <div key={i} className="flex justify-between items-center text-sm">
             <span style={{ color: 'rgba(255,255,255,0.75)' }}>
-              {item.name}
+              {item.url ? (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2"
+                  style={{ color: 'rgba(255,255,255,0.75)' }}
+                >
+                  {item.name}
+                </a>
+              ) : (
+                item.name
+              )}
               <span className="ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>×{item.quantity}</span>
             </span>
             <span className="tabular-nums" style={{ color: 'rgba(255,255,255,0.45)' }}>{item.unit_price}</span>
