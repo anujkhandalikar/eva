@@ -229,13 +229,19 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="shrink-0 block text-center py-2 px-4 rounded-full text-sm transition-colors"
+              className="shrink-0 block text-center py-2 px-4 rounded-full text-sm transition-colors truncate"
               style={{
                 border: '1px solid rgba(255,255,255,0.1)',
                 color: 'rgba(255,255,255,0.4)',
               }}
             >
-              link
+              {(() => {
+                try {
+                  return new URL(firstLink.url).hostname.replace(/^www\./, '');
+                } catch {
+                  return firstLink.label || 'link';
+                }
+              })()}
             </a>
           )}
 

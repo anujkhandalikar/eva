@@ -73,8 +73,12 @@ function extractFirstLink(text: string | null): { label: string; url: string } |
   return { label: match[1], url: match[2] };
 }
 
+const LOW_CONFIDENCE_THRESHOLD = 0.6;
+const RECLASSIFIABLE_STATUSES: TaskStatus[] = ['pending', 'done', 'failed', 'captured'];
+
 export default function TaskCard({ task }: { task: Task }) {
   const [rerunning, setRerunning] = useState(false);
+  const [reclassifying, setReclassifying] = useState(false);
 
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
@@ -86,6 +90,25 @@ export default function TaskCard({ task }: { task: Task }) {
   const isCalendar = task.task_type === 'calendar';
   const isBlinkit = task.task_type === 'blinkit_order';
   const isWhatsApp = task.task_type === 'whatsapp';
+
+  const confidence = task.classification_confidence;
+  const isLowConfidence =
+    typeof confidence === 'number' && confidence < LOW_CONFIDENCE_THRESHOLD;
+  const canReclassify = RECLASSIFIABLE_STATUSES.includes(task.status);
+
+  async function handleReclassifyToThought() {
+    if (reclassifying) return;
+    setReclassifying(true);
+    try {
+      await fetch(`/api/tasks/${task.id}/reclassify`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry_type: 'thought' }),
+      });
+    } finally {
+      setReclassifying(false);
+    }
+  }
 
   const firstLink =
     (!isCalendar && !isBlinkit && !isWhatsApp)
@@ -135,6 +158,23 @@ export default function TaskCard({ task }: { task: Task }) {
           </div>
         )}
       </div>
+
+      {isLowConfidence && canReclassify && (
+        <button
+          onClick={handleReclassifyToThought}
+          disabled={reclassifying}
+          className="text-[11px] italic self-start transition-colors disabled:opacity-40"
+          style={{ color: 'rgba(255,255,255,0.25)' }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.55)';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.25)';
+          }}
+        >
+          {reclassifying ? 'Saving…' : 'Eva wasn’t sure — is this a thought?'}
+        </button>
+      )}
 
       {(task.result_summary || task.error_reason) && (
         <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>

@@ -114,12 +114,27 @@ app.whenReady().then(() => {
   });
 
   // ── Hover to activate / deactivate ──
+  const HOVER_MARGIN = 6;
+
   uIOhook.on('mousemove', (e) => {
     const withinX = Math.abs(e.x - screenCenterX) <= NOTCH_HALF_W;
     // activate only when cursor is in the physical notch/menu-bar strip
     const inNotch = withinX && e.y <= menuBarH;
-    // stay open while cursor is anywhere in the expanded panel too
-    const inPanel = withinX && e.y <= HOVER_ZONE_H;
+
+    // stay open while cursor is anywhere over the current window rect
+    // (window resizes as the panel expands, so use live bounds — the static
+    // HOVER_ZONE_H only covers the collapsed notch + base input row).
+    let inPanel: boolean;
+    if (mainWindow?.isVisible()) {
+      const b = mainWindow.getBounds();
+      inPanel =
+        e.x >= b.x - HOVER_MARGIN &&
+        e.x <= b.x + b.width + HOVER_MARGIN &&
+        e.y >= 0 &&
+        e.y <= b.y + b.height + HOVER_MARGIN;
+    } else {
+      inPanel = withinX && e.y <= HOVER_ZONE_H;
+    }
 
     if (inNotch) {
       if (hoverLeaveTimer) { clearTimeout(hoverLeaveTimer); hoverLeaveTimer = null; }
@@ -206,8 +221,11 @@ ipcMain.on('resize-window', (_, height: number) => {
   native.placeInNotch(mainWindow.getNativeWindowHandle(), W, height);
 });
 
-ipcMain.on('open-task', () => {
-  shell.openExternal('http://localhost:3000');
+ipcMain.on('open-task', (_, id?: string) => {
+  const url = id
+    ? `http://localhost:3000/#entry-${encodeURIComponent(id)}`
+    : 'http://localhost:3000';
+  shell.openExternal(url);
 });
 
 ipcMain.on('clear-tasks', async (_, target: string) => {
