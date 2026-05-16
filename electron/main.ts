@@ -12,13 +12,13 @@ const W = 300;
 const H = 68;
 
 // Ambient mode: wide pill same width as the open pill, centered on the notch.
-// Hangs ~NOTCH_EXTENSION_PX below the menu bar so the pill visually merges
-// with the notch ("the notch came down a little"). On hover, height grows
-// from ambientH to H, looking like the notch extending into the full pill.
+// Height matches the menu-bar height which, on notched MacBooks, equals the
+// physical notch height — so the pill bottom is flush with the notch bottom
+// ("the notch came down a little"). On hover, height grows from ambientH to
+// H, looking like the notch extending into the full pill.
 const W_AMBIENT = W;
-const NOTCH_EXTENSION_PX = -4;
 function ambientH(): number {
-  return screen.getPrimaryDisplay().workArea.y + NOTCH_EXTENSION_PX;
+  return screen.getPrimaryDisplay().workArea.y;
 }
 
 function createWindow() {
@@ -116,7 +116,7 @@ app.whenReady().then(() => {
   // Hover zone: span full pill width so any part of the always-visible
   // notch-extension strip activates the expand.
   const NOTCH_HALF_W = W_AMBIENT / 2;
-  const AMBIENT_BOTTOM_Y = menuBarH + NOTCH_EXTENSION_PX;
+  const AMBIENT_BOTTOM_Y = menuBarH;
   const HOVER_ZONE_H = menuBarH + H + 10;
 
   let ctrlDown = false;

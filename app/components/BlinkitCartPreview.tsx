@@ -8,6 +8,33 @@ interface BlinkitCartPreviewProps {
   taskId: string;
 }
 
+function ImageTile({ item }: { item: CartItem }) {
+  const [failed, setFailed] = useState(false);
+
+  if (item.not_found || !item.image_url || failed) {
+    return (
+      <div
+        className="shrink-0 w-16 h-16 rounded-xl flex items-center justify-center text-lg"
+        style={{ background: 'rgba(255,255,255,0.06)' }}
+        title={item.not_found ? `${item.requested} — not found` : item.name}
+      >
+        {item.not_found ? '?' : '📦'}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={item.image_url}
+      alt={item.name}
+      title={item.name}
+      onError={() => setFailed(true)}
+      className="shrink-0 w-16 h-16 rounded-xl object-cover"
+      style={{ background: 'rgba(255,255,255,0.06)' }}
+    />
+  );
+}
+
 export default function BlinkitCartPreview({ cart, taskId }: BlinkitCartPreviewProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +66,20 @@ export default function BlinkitCartPreview({ cart, taskId }: BlinkitCartPreviewP
 
   return (
     <div className="flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+
+      {/* Image carousel */}
+      {cart.length > 0 && (
+        <div
+          className="flex gap-2 overflow-x-auto pb-1"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {cart.map((item, i) => (
+            <ImageTile key={i} item={item} />
+          ))}
+        </div>
+      )}
+
+      {/* Item list */}
       <div className="flex flex-col gap-1.5">
         {foundItems.map((item, i) => (
           <div key={i} className="flex justify-between items-center text-sm">

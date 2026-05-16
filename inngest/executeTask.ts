@@ -368,8 +368,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
         }
       });
 
-      const unknownItems = parsedItems.filter((item) => !lookupSKU(item.name));
-      const needsMCP = unknownItems.length > 0;
+      const needsMCP = parsedItems.length > 0;
 
       if (needsMCP) {
         const loginStatus = await step.run("blinkit-check-login", async () => {
@@ -439,6 +438,20 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
             const sku = lookupSKU(item.name);
 
             if (sku) {
+              let image_url: string | undefined;
+              if (mcp) {
+                try {
+                  const searchResult = await callTool(mcp, "search", { query: sku.name });
+                  const imgMatch = searchResult?.match(new RegExp(`ID:\\s*${sku.id}[^\\n]*IMG:\\s*(https?:\\/\\/\\S+)`));
+                  if (!imgMatch) {
+                    // fallback: grab first IMG in results
+                    const anyImg = searchResult?.match(/IMG:\s*(https?:\/\/\S+)/);
+                    image_url = anyImg?.[1];
+                  } else {
+                    image_url = imgMatch[1];
+                  }
+                } catch {}
+              }
               cart.push({
                 requested: item.name,
                 name: sku.name,
@@ -446,6 +459,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
                 quantity: item.quantity,
                 unit_price: "",
                 url: sku.url,
+                image_url,
               });
               continue;
             }
@@ -512,17 +526,21 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
             const idMatch = chosen.match(/ID:\s*([^\s|]+)/);
             const priceMatch = chosen.match(/₹[\d,]+/);
             const nameMatch = chosen.match(/\|\s*(.+?)\s*-\s*₹/);
+            const imgMatch = chosen.match(/IMG:\s*(https?:\/\/\S+)/);
 
             const productId = idMatch?.[1] ?? "";
             const productName = nameMatch?.[1]?.trim() ?? item.name;
             const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const productUrl = productId ? `https://blinkit.com/prn/${slug}/prid/${productId}` : undefined;
+            const image_url = imgMatch?.[1] ?? undefined;
             cart.push({
               requested: item.name,
               name: productName,
               product_id: productId,
               quantity: item.quantity,
               unit_price: priceMatch?.[0] ?? "",
-              url: productId ? `https://blinkit.com/prn/${slug}/prid/${productId}` : undefined,
+              url: productUrl,
+              image_url,
               not_found: !productId,
             });
           }

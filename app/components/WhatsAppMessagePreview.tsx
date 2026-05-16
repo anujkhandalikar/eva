@@ -11,22 +11,36 @@ export default function WhatsAppMessagePreview({
   taskId: string;
 }) {
   const [sending, setSending] = useState(false);
-  const [done, setDone] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
 
   async function handleSend() {
     setSending(true);
     try {
       const res = await fetch(`/api/tasks/${taskId}/whatsapp-approve`, { method: 'POST' });
-      if (res.ok) setDone(true);
+      if (res.ok) setSent(true);
     } finally {
       setSending(false);
     }
   }
 
-  if (done) {
+  async function handleCancel() {
+    setCancelled(true);
+    await fetch(`/api/tasks/${taskId}/cancel`, { method: 'POST' });
+  }
+
+  if (sent) {
     return (
       <div className="text-sm font-medium" style={{ color: '#22c55e' }}>
         Message sent to {message.recipient_name}
+      </div>
+    );
+  }
+
+  if (cancelled) {
+    return (
+      <div className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.3)' }}>
+        Cancelled
       </div>
     );
   }
@@ -67,7 +81,7 @@ export default function WhatsAppMessagePreview({
 
       <div className="flex gap-2 justify-end">
         <button
-          onClick={() => setDone(true)}
+          onClick={handleCancel}
           className="px-4 py-1.5 rounded-full text-xs font-semibold transition-colors"
           style={{ color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)'; }}

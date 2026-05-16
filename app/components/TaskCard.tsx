@@ -18,6 +18,7 @@ export type CartItem = {
   quantity: number;
   unit_price: string;
   url?: string;
+  image_url?: string;
   not_found?: boolean;
 };
 
