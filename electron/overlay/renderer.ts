@@ -4,7 +4,7 @@ interface Task {
   id: string;
   created_at: string;
   input: string;
-  status: 'pending' | 'running' | 'done' | 'needs_approval' | 'failed' | 'captured';
+  status: 'pending' | 'running' | 'done' | 'needs_approval' | 'needs_otp' | 'failed' | 'captured';
   result_summary: string | null;
   requires_approval: boolean;
   approved: boolean;
@@ -25,9 +25,10 @@ const taskList       = document.getElementById('taskList') as HTMLDivElement;
 const measureSpan    = document.getElementById('inputMeasure') as HTMLSpanElement;
 const tabTasks       = document.getElementById('tabTasks') as HTMLButtonElement;
 const tabThoughts    = document.getElementById('tabThoughts') as HTMLButtonElement;
+const ambientDot     = document.getElementById('ambientDot') as HTMLDivElement;
 
-const BASE_H        = 75;
-const EXPANDED_H    = 110;
+const BASE_H        = 68;
+const EXPANDED_H    = 68;
 const BASE_W        = 300;
 const EXPANDED_W    = 480;
 const MAX_W         = 900;
@@ -114,6 +115,7 @@ let placeholderIndex = 0;
 
 // ── Show / hide ──
 ipcRenderer.on('did-show', () => {
+  document.body.classList.add('overlay-open');
   notchConfirm.className = 'notch-confirm';
   const textEl = notchConfirm.querySelector('.text') as HTMLSpanElement;
   if (textEl) textEl.textContent = 'Captured';
@@ -139,14 +141,20 @@ ipcRenderer.on('did-show', () => {
 });
 
 ipcRenderer.on('did-hide', () => {
+  document.body.classList.remove('overlay-open');
   input.value = '';
   input.classList.remove('has-text');
   pill.classList.remove('drop', 'collapse');
   browseOpen = false;
   pendingBrowseOpen = false;
   browseBtn.classList.remove('active');
-  resetSize();
+  // Reset internal state only. Main process owns window size now (collapses
+  // to ambient on its own). Don't send set-size IPC — would re-expand window.
+  inputExpanded = false;
+  pill.classList.remove('expanded');
 });
+
+// notch-height IPC kept for future use; dot now positions via CSS centering.
 
 // ── Notch confirm ──
 ipcRenderer.on('show-confirm', () => {
@@ -160,16 +168,121 @@ ipcRenderer.on('show-confirm', () => {
 ipcRenderer.on('tasks-data', (_: unknown, tasks: Task[]) => {
   storedTasks = tasks;
   updateBadge(tasks);
+  updateAmbientDot(tasks);
   if (pendingBrowseOpen) {
     pendingBrowseOpen = false;
     openBrowse(tasks);
   }
 });
 
+// ── Ambient dot — most-urgent non-thought task. Urgency beats recency so a
+// fresh pending task does not mask an older needs_approval / failed one. ──
+const DONE_MAX_VISIBLE_MS = 1 * 60 * 1000;
+const DONE_STORAGE_KEY = 'ambient:done';
+type AmbientStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'needs_otp' | 'failed' | 'captured';
+const AMBIENT_STATUSES: ReadonlySet<string> = new Set([
+  'pending', 'running', 'done', 'needs_approval', 'needs_otp', 'failed', 'captured',
+]);
+
+let ambientTaskId: string | null = null;
+let ambientDoneShownAt: number | null = null;
+let doneHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+type DoneSnapshot = { id: string; ts: number };
+
+function readDoneSnapshot(): DoneSnapshot | null {
+  try {
+    const raw = localStorage.getItem(DONE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DoneSnapshot>;
+    if (typeof parsed?.id === 'string' && typeof parsed?.ts === 'number') {
+      return { id: parsed.id, ts: parsed.ts };
+    }
+    return null;
+  } catch { return null; }
+}
+
+function writeDoneSnapshot(id: string, ts: number) {
+  try { localStorage.setItem(DONE_STORAGE_KEY, JSON.stringify({ id, ts })); } catch { /* quota / disabled */ }
+}
+
+function clearDoneSnapshot() {
+  try { localStorage.removeItem(DONE_STORAGE_KEY); } catch { /* disabled */ }
+}
+
+function hideAmbientDot() {
+  ambientDot.hidden = true;
+  ambientDot.removeAttribute('data-status');
+  ambientTaskId = null;
+  ambientDoneShownAt = null;
+}
+
+function updateAmbientDot(entries: Task[]) {
+  if (doneHideTimer !== null) {
+    clearTimeout(doneHideTimer);
+    doneHideTimer = null;
+  }
+
+  const tasks = entries.filter(e => !isThought(e));
+  const sorted = sortByUrgency(tasks);
+  const latest = sorted[0];
+
+  if (!latest || !AMBIENT_STATUSES.has(latest.status)) {
+    hideAmbientDot();
+    clearDoneSnapshot();
+    return;
+  }
+
+  const taskChanged = latest.id !== ambientTaskId;
+  if (taskChanged) {
+    ambientTaskId = latest.id;
+    if (latest.status === 'done') {
+      // Only show if we have a stored timestamp — no ts means the window already
+      // expired and was cleared, so don't restart the timer on restart.
+      const stored = readDoneSnapshot();
+      if (stored && stored.id === latest.id) {
+        ambientDoneShownAt = stored.ts;
+      } else {
+        ambientDoneShownAt = null;
+      }
+    } else {
+      ambientDoneShownAt = null;
+      clearDoneSnapshot();
+    }
+  } else if (latest.status === 'done' && ambientDoneShownAt === null) {
+    ambientDoneShownAt = Date.now();
+    writeDoneSnapshot(latest.id, ambientDoneShownAt);
+  } else if (latest.status !== 'done') {
+    ambientDoneShownAt = null;
+    clearDoneSnapshot();
+  }
+
+  if (latest.status === 'done') {
+    if (ambientDoneShownAt === null) {
+      hideAmbientDot();
+      return;
+    }
+    const age = Date.now() - ambientDoneShownAt;
+    if (age >= DONE_MAX_VISIBLE_MS) {
+      hideAmbientDot();
+      clearDoneSnapshot();
+      return;
+    }
+    // Self-fire the hide check even when no new task data arrives.
+    doneHideTimer = setTimeout(() => updateAmbientDot(storedTasks), DONE_MAX_VISIBLE_MS - age);
+  }
+
+  ambientDot.hidden = false;
+  ambientDot.dataset.status = latest.status as AmbientStatus;
+}
+
+ambientDot.addEventListener('click', () => {
+  if (ambientTaskId) ipcRenderer.send('open-task', ambientTaskId);
+});
+
 function updateBadge(entries: Task[]) {
   const tasks = entries.filter(e => !isThought(e));
   const actionable = tasks.filter(t => t.status === 'needs_approval' || t.status === 'failed').length;
-  const hasRunning = tasks.some(t => t.status === 'running' || t.status === 'pending');
   const hasTasks   = entries.length > 0;
 
   browseBtn.classList.toggle('has-tasks', hasTasks);
@@ -178,9 +291,6 @@ function updateBadge(entries: Task[]) {
     browseBadge.textContent = String(actionable);
     browseBadge.classList.add('visible');
     browseBadge.classList.remove('pulse');
-  } else if (hasRunning) {
-    browseBadge.textContent = '';
-    browseBadge.classList.add('visible', 'pulse');
   } else {
     browseBadge.textContent = '';
     browseBadge.classList.remove('visible', 'pulse');
@@ -278,6 +388,7 @@ function renderThoughtList(thoughts: Task[]) {
 
 const STATUS_PRIORITY: Record<Task['status'], number> = {
   needs_approval: 0,
+  needs_otp:      0,
   running:        1,
   pending:        1,
   failed:         2,

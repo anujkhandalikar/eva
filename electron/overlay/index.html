@@ -6,15 +6,22 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body { background: transparent !important; }
+
     body {
       overflow: hidden;
-      background: transparent;
       font-family: -apple-system, "SF Pro Text", "SF Pro Display", sans-serif;
       -webkit-app-region: drag;
       height: 100vh;
     }
 
-    /* ── Pill — drops from notch ── */
+    /* No separate ambient shell — the .pill itself is always visible and
+       serves both ambient (window short) and open (window tall) modes. */
+
+    /* ── Pill — always visible. Ambient mode shows just the rounded-bottom
+       strip below the notch (window is short); on hover the window grows
+       and the input row is revealed. No scaleY animation — window-resize
+       animation in main process drives the drop/collapse feel. ── */
     .pill {
       width: 100%;
       background: #000000;
@@ -27,23 +34,6 @@
       height: 100vh;
       overflow: hidden;
       position: relative;
-      transform-origin: top center;
-      transform: scaleY(0);
-    }
-
-    .pill.drop    { animation: dropDown 0.2s linear forwards; }
-    .pill.collapse { animation: collapseUp 0.07s cubic-bezier(0.4, 0, 1, 1) forwards; }
-
-    @keyframes dropDown {
-      0%   { transform: scaleY(0);    }
-      55%  { transform: scaleY(1.07); }
-      75%  { transform: scaleY(0.97); }
-      100% { transform: scaleY(1);    }
-    }
-
-    @keyframes collapseUp {
-      0%   { transform: scaleY(1); }
-      100% { transform: scaleY(0); }
     }
 
     .pill.drop .input-row { animation: fadeIn 0.1s ease 0.12s both; }
@@ -53,18 +43,26 @@
       to   { opacity: 1; }
     }
 
-    /* ── Input row — animates between default 75px and expanded 110px ── */
+    /* ── Input row — animates between default 68px and expanded 99px ── */
     .input-row {
-      flex: 0 0 75px;
+      flex: 0 0 68px;
       display: flex;
       align-items: center;
-      padding: 20px 14px 8px 14px;
+      padding: 20px 14px 0 14px;
       gap: 8px;
-      transition: flex-basis 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: flex-basis 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.15s ease;
+    }
+
+    /* Hide input content in resting/ambient mode so the pill looks like a
+       clean notch extension. Dot is outside .input-row so it stays visible. */
+    body:not(.overlay-open) .input-row {
+      opacity: 0;
+      pointer-events: none;
     }
 
     .pill.expanded .input-row {
-      flex: 0 0 110px;
+      flex: 0 0 68px;
     }
 
     .pill.expanded .browse-btn { color: rgba(255,255,255,0.22); }
@@ -87,7 +85,7 @@
     }
 
     input.has-text { font-weight: 700; }
-    input::placeholder { color: rgba(255,255,255,0.22); font-weight: 400; }
+    input::placeholder { color: rgba(255,255,255,0.22); font-weight: 700; }
 
     /* ── Browse button ── */
     .browse-btn {
@@ -344,6 +342,55 @@
       inset: 0;
       pointer-events: none;
     }
+
+    /* ── Ambient status dot — fixed near notch.
+       In ambient mode: centered just below notch cutout.
+       In open mode: top-left corner of pill (notch only covers center, so
+       corners are visible without overlapping the input row content). ── */
+    /* Status dot — same position in ambient and open modes (top-right of
+       the pill, just past notch edge). x is outside notch hardware, so it's
+       always visible regardless of window height. */
+    .ambient-dot {
+      position: fixed;
+      top: 7px;
+      right: 18px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      z-index: 9999;
+      background: transparent;
+      transition: background 0.15s ease;
+    }
+
+    .ambient-dot[hidden] { display: none; }
+
+    .ambient-dot[data-status="running"] {
+      background: #eab308;
+      animation: ambientPulse 1s ease-in-out infinite;
+    }
+    .ambient-dot[data-status="needs_approval"],
+    .ambient-dot[data-status="needs_otp"] {
+      background: #f97316;
+      animation: ambientPulse 1.4s ease-in-out infinite;
+    }
+    .ambient-dot[data-status="done"]    { background: #22c55e; }
+    .ambient-dot[data-status="failed"]  { background: #ef4444; }
+    .ambient-dot[data-status="pending"],
+    .ambient-dot[data-status="captured"] {
+      background: rgba(255,255,255,0.55);
+      animation: ambientPulseFaint 2s ease-in-out infinite;
+    }
+
+    @keyframes ambientPulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.25; }
+    }
+    @keyframes ambientPulseFaint {
+      0%, 100% { opacity: 0.95; }
+      50%      { opacity: 0.5; }
+    }
   </style>
 </head>
 <body>
@@ -374,6 +421,9 @@
 
     <canvas id="confetti"></canvas>
   </div>
+
+  <!-- ambient status dot — most-recent-task indicator, sits just below notch -->
+  <div id="ambientDot" class="ambient-dot" hidden title="Open most recent task"></div>
 
   <!-- notch confirmation shown after collapse -->
   <div class="notch-confirm" id="notchConfirm">
