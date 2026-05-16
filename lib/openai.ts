@@ -101,7 +101,8 @@ THOUGHT = a note, idea, observation, reflection, reminder-to-self, gripe, questi
 TASK = an imperative command for Eva to research, order, schedule, send, look up, summarize, or otherwise act NOW.
 
 Disambiguation rules:
-- Imperative verb at the start (find, book, send, order, schedule, list, summarize, check, what is, what did, look up) → task
+- Imperative verb at the start (find, book, send, order, schedule, list, summarize, check, what is, what did, look up, text, message, msg, dm, ping, whatsapp, wa, tell, reply, email, call) → task
+- Messaging intent ("text X on group Y", "send X to Y", "message Y saying X", "dm Y", "ping Y", "tell Y to ...") → task, even if the message body sounds casual ("goodnight", "thanks", "ok"). The casual word is the payload, not a thought.
 - Declarative, past tense, or self-directed ("I should", "remember", "remind me", "X is broken", "wonder if") → thought
 - When genuinely ambiguous, prefer "thought" — the user can promote it later. Avoid false-positive task execution.
 
@@ -123,7 +124,10 @@ Examples:
 "what did cursor ship this week" → {"entry_type":"task","tags":[],"confidence":0.9}
 "i should write a blog post about latency budgets" → {"entry_type":"thought","tags":["idea"],"confidence":0.93}
 "remind me to call mom" → {"entry_type":"thought","tags":["personal","followup"],"confidence":0.9}
-"summarize the linear thread on auth" → {"entry_type":"task","tags":[],"confidence":0.92}`,
+"summarize the linear thread on auth" → {"entry_type":"task","tags":[],"confidence":0.92}
+"text goodnight on group Ghar:D" → {"entry_type":"task","tags":[],"confidence":0.95}
+"message anuj saying running late" → {"entry_type":"task","tags":[],"confidence":0.95}
+"dm sarah thanks for the help" → {"entry_type":"task","tags":[],"confidence":0.93}`,
       },
       { role: "user", content: input },
     ],

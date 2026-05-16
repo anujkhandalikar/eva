@@ -9,7 +9,7 @@
     body {
       overflow: hidden;
       background: transparent;
-      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-family: -apple-system, "SF Pro Text", "SF Pro Display", sans-serif;
       -webkit-app-region: drag;
       height: 100vh;
     }
@@ -53,21 +53,29 @@
       to   { opacity: 1; }
     }
 
-    /* ── Input row — fixed 75px, visually unchanged from before ── */
+    /* ── Input row — animates between default 75px and expanded 110px ── */
     .input-row {
       flex: 0 0 75px;
       display: flex;
-      align-items: flex-end;
-      padding: 0 14px 14px 14px;
+      align-items: center;
+      padding: 0 14px;
       gap: 8px;
+      transition: flex-basis 0.22s cubic-bezier(0.22, 1, 0.36, 1);
     }
+
+    .pill.expanded .input-row {
+      flex: 0 0 110px;
+    }
+
+    .pill.expanded .browse-btn { color: rgba(255,255,255,0.22); }
+    .pill.expanded .browse-btn:hover { color: rgba(255,255,255,0.55); }
 
     input {
       flex: 1;
       background: transparent;
       border: none;
       color: rgba(255,255,255,0.9);
-      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-family: -apple-system, "SF Pro Text", "SF Pro Display", sans-serif;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: -0.02em;
@@ -79,7 +87,7 @@
     }
 
     input.has-text { font-weight: 700; }
-    input::placeholder { color: rgba(255,255,255,0.22); font-weight: 300; }
+    input::placeholder { color: rgba(255,255,255,0.22); font-weight: 400; }
 
     /* ── Browse button ── */
     .browse-btn {
@@ -159,10 +167,10 @@
       flex: 0 0 auto;
       padding: 4px 12px;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 500;
       letter-spacing: -0.01em;
       border-radius: 99px;
-      color: rgba(255,255,255,0.35);
+      color: rgba(255,255,255,0.45);
       background: transparent;
       border: none;
       cursor: pointer;
@@ -170,11 +178,12 @@
       -webkit-app-region: no-drag;
     }
 
-    .tab:hover { color: rgba(255,255,255,0.6); }
+    .tab:hover { color: rgba(255,255,255,0.7); }
 
     .tab.active {
       background: rgba(255,255,255,0.08);
-      color: rgba(255,255,255,0.92);
+      color: rgba(255,255,255,0.85);
+      font-weight: 600;
     }
 
     .task-list {
@@ -193,7 +202,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 8px;
+      padding: 7px 10px;
       cursor: pointer;
       border-radius: 6px;
       -webkit-app-region: no-drag;
@@ -203,8 +212,8 @@
     .task-row:hover { background: rgba(255,255,255,0.06); }
 
     .status-dot {
-      width: 5px;
-      height: 5px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       flex-shrink: 0;
     }
@@ -221,7 +230,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 8px 7px 10px;
+      padding: 7px 10px 7px 12px;
       cursor: pointer;
       border-radius: 6px;
       -webkit-app-region: no-drag;
@@ -259,20 +268,21 @@
 
     .task-name {
       flex: 1;
-      font-size: 12px;
-      font-weight: 400;
-      color: rgba(255,255,255,0.6);
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.82);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      letter-spacing: -0.01em;
+      letter-spacing: -0.005em;
     }
 
     .task-time {
-      font-size: 10px;
-      color: rgba(255,255,255,0.18);
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
       flex-shrink: 0;
-      letter-spacing: 0.02em;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
     }
 
     /* ── Notch confirmation — shows after collapse ── */
@@ -321,7 +331,7 @@
       position: absolute;
       visibility: hidden;
       white-space: pre;
-      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-family: -apple-system, "SF Pro Text", "SF Pro Display", sans-serif;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: -0.02em;

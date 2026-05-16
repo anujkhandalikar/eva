@@ -4,7 +4,7 @@ import { classifyEntry, detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
 import { listEvents, createEvent } from "@/lib/googleCalendar";
-import { searchContacts, getLastMessage, listRecentMessages } from "@/lib/whatsapp";
+import { searchContacts, getLastMessage, listRecentMessages, resolveRecipient } from "@/lib/whatsapp";
 
 function formatEventList(events: Awaited<ReturnType<typeof listEvents>>): string {
   if (events.length === 0) return "No events found in that time range.";
@@ -243,27 +243,30 @@ export const executeTask = inngest.createFunction(
 
         const proposedMessage = await step.run("whatsapp-resolve-recipient", async () => {
           console.log(`[whatsapp-send] recipient_query="${intent.recipient_query}" body="${intent.message_body}"`);
-          const contacts = searchContacts(intent.recipient_query);
-          console.log(`[whatsapp-send] contacts found: ${contacts.length}`, contacts);
-          if (contacts.length === 0) {
+          const resolved = resolveRecipient(intent.recipient_query);
+          if (!resolved) {
             throw new Error(`No contact found matching "${intent.recipient_query}"`);
           }
-          const contact = contacts[0];
+          console.log(`[whatsapp-send] resolved → ${resolved.name} (${resolved.jid})${resolved.alias ? ` via alias "${resolved.alias}"` : ''}`);
           return {
-            recipient: contact.jid,
-            recipient_name: contact.name,
+            recipient: resolved.jid,
+            recipient_name: resolved.name,
             body: intent.message_body,
+            ...(resolved.alias ? { alias: resolved.alias } : {}),
           };
         });
 
         await step.run("update-needs-approval-whatsapp", async () => {
+          const label = proposedMessage.alias
+            ? `${proposedMessage.alias} (${proposedMessage.recipient_name})`
+            : proposedMessage.recipient_name;
           const { error } = await supabase
             .from("tasks")
             .update({
               status: "needs_approval",
               requires_approval: true,
               proposed_message: proposedMessage,
-              result_summary: `Send to ${proposedMessage.recipient_name}: "${proposedMessage.body}"`,
+              result_summary: `Send to ${label}: "${proposedMessage.body}"`,
             })
             .eq("id", id);
           if (error) throw error;

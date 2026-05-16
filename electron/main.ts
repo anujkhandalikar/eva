@@ -53,6 +53,7 @@ function showOverlay(grabFocus = false) {
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   mainWindow.show();
+  cancelResizeAnim();
   mainWindow.setSize(W, H);
   native.placeInNotch(mainWindow.getNativeWindowHandle(), W, H);
 
@@ -190,18 +191,49 @@ ipcMain.on('hide-window', () => {
   mainWindow?.webContents.send('did-hide');
 });
 
+let resizeAnimTimer: NodeJS.Timeout | null = null;
+
+function cancelResizeAnim() {
+  if (resizeAnimTimer) {
+    clearInterval(resizeAnimTimer);
+    resizeAnimTimer = null;
+  }
+}
+
+function setSizeImmediate(w: number, h: number) {
+  if (!mainWindow) return;
+  mainWindow.setSize(w, h);
+  native.placeInNotch(mainWindow.getNativeWindowHandle(), w, h);
+}
+
+function animateResize(targetW: number, targetH: number, durationMs = 220) {
+  if (!mainWindow) return;
+  cancelResizeAnim();
+  const [startW, startH] = mainWindow.getSize();
+  if (startW === targetW && startH === targetH) return;
+  const startT = Date.now();
+
+  resizeAnimTimer = setInterval(() => {
+    if (!mainWindow) { cancelResizeAnim(); return; }
+    const t = Math.min(1, (Date.now() - startT) / durationMs);
+    // cubic-bezier(0.22, 1, 0.36, 1) approximation — same easing as CSS
+    const e = 1 - Math.pow(1 - t, 3);
+    const w = Math.round(startW + (targetW - startW) * e);
+    const h = Math.round(startH + (targetH - startH) * e);
+    setSizeImmediate(w, h);
+    if (t >= 1) cancelResizeAnim();
+  }, 16);
+}
+
 ipcMain.on('contract-to-notch', () => {
   if (!mainWindow) return;
-  mainWindow.setSize(W, H);
-  native.placeInNotch(mainWindow.getNativeWindowHandle(), W, H);
+  cancelResizeAnim();
+  setSizeImmediate(W, H);
   mainWindow.webContents.send('show-confirm');
 });
 
-ipcMain.on('expand-width', (_, width: number) => {
-  if (!mainWindow) return;
-  const currentH = mainWindow.getSize()[1];
-  mainWindow.setSize(width, currentH);
-  native.placeInNotch(mainWindow.getNativeWindowHandle(), width, currentH);
+ipcMain.on('set-size', (_, { w, h }: { w: number; h: number }) => {
+  animateResize(w, h);
 });
 
 ipcMain.on('fetch-tasks', async () => {
@@ -213,12 +245,6 @@ ipcMain.on('fetch-tasks', async () => {
   } catch {
     mainWindow?.webContents.send('tasks-data', []);
   }
-});
-
-ipcMain.on('resize-window', (_, height: number) => {
-  if (!mainWindow) return;
-  mainWindow.setSize(W, height);
-  native.placeInNotch(mainWindow.getNativeWindowHandle(), W, height);
 });
 
 ipcMain.on('open-task', (_, id?: string) => {

@@ -27,24 +27,44 @@ const tabTasks       = document.getElementById('tabTasks') as HTMLButtonElement;
 const tabThoughts    = document.getElementById('tabThoughts') as HTMLButtonElement;
 
 const BASE_H        = 75;
+const EXPANDED_H    = 110;
 const BASE_W        = 300;
-const MAX_W         = 620;
+const EXPANDED_W    = 480;
+const MAX_W         = 900;
 const INPUT_OVERHEAD = 82; // left-pad + right-pad + gap + browse-btn + buffer
 const ROW_H         = 30;
 const TAB_BAR_H     = 34; // tabs row padding + content
 const PANEL_EXTRA   = 20 + TAB_BAR_H; // separator + list padding + tab bar
-const MAX_H         = 285; // cap — panel scrolls beyond this
+const MAX_H         = 360; // cap — panel scrolls beyond this
 const THOUGHTS_VISIBLE_LIMIT = 10;
 
-function updateWidth() {
-  measureSpan.textContent = input.value;
-  const textW = measureSpan.offsetWidth;
-  const newW  = Math.min(Math.max(BASE_W, textW + INPUT_OVERHEAD), MAX_W);
-  ipcRenderer.send('expand-width', newW);
+let inputExpanded = false;
+
+function inputHeight(): number {
+  return inputExpanded ? EXPANDED_H : BASE_H;
 }
 
-function resetWidth() {
-  ipcRenderer.send('expand-width', BASE_W);
+function currentWidth(): number {
+  measureSpan.textContent = input.value;
+  const textW = measureSpan.offsetWidth;
+  const floor = inputExpanded ? EXPANDED_W : BASE_W;
+  return Math.min(Math.max(floor, textW + INPUT_OVERHEAD), MAX_W);
+}
+
+function updateSize() {
+  ipcRenderer.send('set-size', { w: currentWidth(), h: inputHeight() });
+}
+
+function expandInput() {
+  if (inputExpanded) return;
+  inputExpanded = true;
+  pill.classList.add('expanded');
+}
+
+function resetSize() {
+  inputExpanded = false;
+  pill.classList.remove('expanded');
+  ipcRenderer.send('set-size', { w: BASE_W, h: BASE_H });
 }
 
 let browseOpen       = false;
@@ -125,7 +145,7 @@ ipcRenderer.on('did-hide', () => {
   browseOpen = false;
   pendingBrowseOpen = false;
   browseBtn.classList.remove('active');
-  resetWidth();
+  resetSize();
 });
 
 // ── Notch confirm ──
@@ -280,7 +300,7 @@ function sortByRecency(entries: Task[]): Task[] {
 }
 
 function browseHeight(rowCount: number): number {
-  return Math.min(BASE_H + PANEL_EXTRA + Math.max(rowCount, 1) * ROW_H, MAX_H);
+  return Math.min(inputHeight() + PANEL_EXTRA + Math.max(rowCount, 1) * ROW_H, MAX_H);
 }
 
 function renderActiveTab() {
@@ -306,7 +326,7 @@ function openBrowse(entries: Task[]) {
   browseBtn.classList.add('active');
   storedTasks = entries;
   const visibleRows = renderActiveTab();
-  ipcRenderer.send('resize-window', browseHeight(visibleRows));
+  ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
 }
 
 tabTasks.addEventListener('click', () => {
@@ -314,7 +334,7 @@ tabTasks.addEventListener('click', () => {
   activeTab = 'tasks';
   if (browseOpen) {
     const visibleRows = renderActiveTab();
-    ipcRenderer.send('resize-window', browseHeight(visibleRows));
+    ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
   }
 });
 
@@ -323,14 +343,14 @@ tabThoughts.addEventListener('click', () => {
   activeTab = 'thoughts';
   if (browseOpen) {
     const visibleRows = renderActiveTab();
-    ipcRenderer.send('resize-window', browseHeight(visibleRows));
+    ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
   }
 });
 
 function closeBrowse() {
   browseOpen = false;
   browseBtn.classList.remove('active');
-  ipcRenderer.send('resize-window', BASE_H);
+  ipcRenderer.send('set-size', { w: currentWidth(), h: inputHeight() });
 }
 
 // ── Browse button toggle ──
@@ -345,8 +365,10 @@ browseBtn.addEventListener('click', () => {
 
 // ── Input handlers ──
 input.addEventListener('input', () => {
-  input.classList.toggle('has-text', input.value.length > 0);
-  updateWidth();
+  const hasText = input.value.length > 0;
+  input.classList.toggle('has-text', hasText);
+  if (hasText) expandInput();
+  updateSize();
 });
 
 input.addEventListener('keydown', (e) => {
@@ -359,7 +381,7 @@ function dismiss() {
     closeBrowse();
     return;
   }
-  resetWidth();
+  resetSize();
   pill.classList.remove('drop');
   void pill.offsetHeight;
   pill.classList.add('collapse');
@@ -436,7 +458,7 @@ function collapseAndConfirm(message: string) {
   if (textEl) textEl.textContent = message;
 
   if (browseOpen) { browseOpen = false; browseBtn.classList.remove('active'); }
-  resetWidth();
+  resetSize();
 
   pill.classList.remove('drop');
   void pill.offsetHeight;
