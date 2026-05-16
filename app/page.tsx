@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import TaskCard, { Task } from '@/app/components/TaskCard';
 import ThoughtCard from '@/app/components/ThoughtCard';
 import ViewToggle, { ViewMode } from '@/app/components/ViewToggle';
 import CardStack from '@/app/components/CardStack';
 import FilterBar, { EntryFilter } from '@/app/components/FilterBar';
+import AddEntrySheet, { type AddEntrySheetHandle } from '@/app/components/AddEntrySheet';
 
 function readEntryHash(): string | null {
   if (typeof window === 'undefined') return null;
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetRef = useRef<AddEntrySheetHandle>(null);
 
   const handleDeleteTask = async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
@@ -113,6 +116,36 @@ export default function Dashboard() {
 
   return (
     <div className="h-dvh overflow-hidden flex flex-col px-4 sm:px-6 lg:px-8">
+      {/* Blur backdrop — mobile only, behind sheet */}
+      {sheetOpen && (
+        <div
+          className="fixed inset-0 z-[60] sm:hidden"
+          style={{ backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => setSheetOpen(false)}
+        />
+      )}
+
+      {/* Add entry sheet — always in DOM so ref is available for synchronous focus */}
+      <AddEntrySheet ref={sheetRef} open={sheetOpen} onClose={() => setSheetOpen(false)} />
+
+      {/* + FAB — mobile only */}
+      <button
+        onClick={() => {
+          setSheetOpen(true);
+          sheetRef.current?.focus(); // synchronous in tap handler — iOS opens keyboard
+        }}
+        className="sm:hidden fixed bottom-8 right-8 z-[50] w-14 h-14 rounded-full flex items-center justify-center transition-transform active:scale-95 hover:scale-110"
+        style={{
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          color: 'rgba(255,255,255,0.6)',
+          fontSize: 28,
+          lineHeight: 1,
+        }}
+      >
+        +
+      </button>
+
       <div className="max-w-3xl w-full mx-auto flex flex-col h-full">
 
         <div className="py-5 flex items-center justify-end shrink-0">

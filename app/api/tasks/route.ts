@@ -59,6 +59,14 @@ export async function DELETE(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const submitToken = process.env.SUBMIT_TOKEN;
+    if (submitToken) {
+      const provided = req.headers.get('x-submit-token');
+      if (provided !== submitToken) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+
     const { input } = await req.json();
 
     if (!input) {

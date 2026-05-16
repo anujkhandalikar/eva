@@ -138,7 +138,7 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
             onClick={handleRerunFront}
             disabled={rerunning || frontTask?.status === 'running'}
             style={{
-              position: 'fixed', bottom: 32, left: 32, zIndex: 9999,
+              position: 'fixed', bottom: 32, left: 32, zIndex: 40,
               background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.1)',
               color: 'rgba(255,255,255,0.6)',
@@ -148,11 +148,11 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
             {rerunning ? '⏳' : '↺'}
           </button>
 
-          {/* Tell me more — bottom right */}
-          <div ref={dropdownRef} style={{ position: 'fixed', bottom: 32, right: 32, zIndex: 9999 }}>
+          {/* Explore — bottom center */}
+          <div ref={dropdownRef} style={{ position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 40 }}>
             {dropdownOpen && (
               <div
-                className="absolute bottom-full right-0 mb-2 w-64 rounded-2xl overflow-hidden"
+                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-2xl overflow-hidden"
                 style={{
                   background: 'rgba(20,20,20,0.95)',
                   border: '1px solid rgba(255,255,255,0.1)',
