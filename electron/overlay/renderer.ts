@@ -4,11 +4,15 @@ interface Task {
   id: string;
   created_at: string;
   input: string;
-  status: 'pending' | 'running' | 'done' | 'needs_approval' | 'failed';
+  status: 'pending' | 'running' | 'done' | 'needs_approval' | 'needs_otp' | 'failed' | 'captured';
   result_summary: string | null;
   requires_approval: boolean;
   approved: boolean;
+  entry_type?: 'task' | 'thought';
+  tags?: string[];
 }
+
+type TabKey = 'tasks' | 'thoughts';
 
 const pill           = document.getElementById('pill') as HTMLDivElement;
 const input          = document.getElementById('taskInput') as HTMLInputElement;
@@ -19,29 +23,69 @@ const browseBtn      = document.getElementById('browseBtn') as HTMLButtonElement
 const browseBadge    = document.getElementById('browseBadge') as HTMLSpanElement;
 const taskList       = document.getElementById('taskList') as HTMLDivElement;
 const measureSpan    = document.getElementById('inputMeasure') as HTMLSpanElement;
+const tabTasks       = document.getElementById('tabTasks') as HTMLButtonElement;
+const tabThoughts    = document.getElementById('tabThoughts') as HTMLButtonElement;
+const ambientDot     = document.getElementById('ambientDot') as HTMLDivElement;
 
-const BASE_H        = 75;
+const BASE_H        = 68;
+const EXPANDED_H    = 68;
 const BASE_W        = 300;
-const MAX_W         = 620;
+const EXPANDED_W    = 480;
+const MAX_W         = 900;
 const INPUT_OVERHEAD = 82; // left-pad + right-pad + gap + browse-btn + buffer
 const ROW_H         = 30;
-const PANEL_EXTRA   = 20; // separator + list padding
-const MAX_H         = 285; // cap — panel scrolls beyond this
+const TAB_BAR_H     = 34; // tabs row padding + content
+const PANEL_EXTRA   = 20 + TAB_BAR_H; // separator + list padding + tab bar
+const MAX_H         = 360; // cap — panel scrolls beyond this
+const THOUGHTS_VISIBLE_LIMIT = 10;
 
-function updateWidth() {
-  measureSpan.textContent = input.value;
-  const textW = measureSpan.offsetWidth;
-  const newW  = Math.min(Math.max(BASE_W, textW + INPUT_OVERHEAD), MAX_W);
-  ipcRenderer.send('expand-width', newW);
+let inputExpanded = false;
+
+function inputHeight(): number {
+  return inputExpanded ? EXPANDED_H : BASE_H;
 }
 
-function resetWidth() {
-  ipcRenderer.send('expand-width', BASE_W);
+function currentWidth(): number {
+  measureSpan.textContent = input.value;
+  const textW = measureSpan.offsetWidth;
+  const floor = inputExpanded ? EXPANDED_W : BASE_W;
+  return Math.min(Math.max(floor, textW + INPUT_OVERHEAD), MAX_W);
+}
+
+function updateSize() {
+  ipcRenderer.send('set-size', { w: currentWidth(), h: inputHeight() });
+}
+
+function expandInput() {
+  if (inputExpanded) return;
+  inputExpanded = true;
+  pill.classList.add('expanded');
+}
+
+function resetSize() {
+  inputExpanded = false;
+  pill.classList.remove('expanded');
+  ipcRenderer.send('set-size', { w: BASE_W, h: BASE_H });
 }
 
 let browseOpen       = false;
 let pendingBrowseOpen = false;
 let storedTasks: Task[] = [];
+let activeTab: TabKey = 'tasks';
+
+function isThought(t: Task): boolean {
+  return t.entry_type === 'thought';
+}
+
+function splitEntries(entries: Task[]): { tasks: Task[]; thoughts: Task[] } {
+  const tasks: Task[] = [];
+  const thoughts: Task[] = [];
+  for (const e of entries) {
+    if (isThought(e)) thoughts.push(e);
+    else tasks.push(e);
+  }
+  return { tasks, thoughts };
+}
 
 // ── Placeholders ──
 const placeholders = [
@@ -71,6 +115,7 @@ let placeholderIndex = 0;
 
 // ── Show / hide ──
 ipcRenderer.on('did-show', () => {
+  document.body.classList.add('overlay-open');
   notchConfirm.className = 'notch-confirm';
   const textEl = notchConfirm.querySelector('.text') as HTMLSpanElement;
   if (textEl) textEl.textContent = 'Captured';
@@ -96,14 +141,20 @@ ipcRenderer.on('did-show', () => {
 });
 
 ipcRenderer.on('did-hide', () => {
+  document.body.classList.remove('overlay-open');
   input.value = '';
   input.classList.remove('has-text');
   pill.classList.remove('drop', 'collapse');
   browseOpen = false;
   pendingBrowseOpen = false;
   browseBtn.classList.remove('active');
-  resetWidth();
+  // Reset internal state only. Main process owns window size now (collapses
+  // to ambient on its own). Don't send set-size IPC — would re-expand window.
+  inputExpanded = false;
+  pill.classList.remove('expanded');
 });
+
+// notch-height IPC kept for future use; dot now positions via CSS centering.
 
 // ── Notch confirm ──
 ipcRenderer.on('show-confirm', () => {
@@ -117,16 +168,122 @@ ipcRenderer.on('show-confirm', () => {
 ipcRenderer.on('tasks-data', (_: unknown, tasks: Task[]) => {
   storedTasks = tasks;
   updateBadge(tasks);
+  updateAmbientDot(tasks);
   if (pendingBrowseOpen) {
     pendingBrowseOpen = false;
     openBrowse(tasks);
   }
 });
 
-function updateBadge(tasks: Task[]) {
+// ── Ambient dot — most-urgent non-thought task. Urgency beats recency so a
+// fresh pending task does not mask an older needs_approval / failed one. ──
+const DONE_MAX_VISIBLE_MS = 1 * 60 * 1000;
+const DONE_STORAGE_KEY = 'ambient:done';
+type AmbientStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'needs_otp' | 'failed' | 'captured';
+const AMBIENT_STATUSES: ReadonlySet<string> = new Set([
+  'pending', 'running', 'done', 'needs_approval', 'needs_otp', 'failed', 'captured',
+]);
+
+let ambientTaskId: string | null = null;
+let ambientDoneShownAt: number | null = null;
+let doneHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+type DoneSnapshot = { id: string; ts: number };
+
+function readDoneSnapshot(): DoneSnapshot | null {
+  try {
+    const raw = localStorage.getItem(DONE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DoneSnapshot>;
+    if (typeof parsed?.id === 'string' && typeof parsed?.ts === 'number') {
+      return { id: parsed.id, ts: parsed.ts };
+    }
+    return null;
+  } catch { return null; }
+}
+
+function writeDoneSnapshot(id: string, ts: number) {
+  try { localStorage.setItem(DONE_STORAGE_KEY, JSON.stringify({ id, ts })); } catch { /* quota / disabled */ }
+}
+
+function clearDoneSnapshot() {
+  try { localStorage.removeItem(DONE_STORAGE_KEY); } catch { /* disabled */ }
+}
+
+function hideAmbientDot() {
+  ambientDot.hidden = true;
+  ambientDot.removeAttribute('data-status');
+  ambientTaskId = null;
+  ambientDoneShownAt = null;
+}
+
+function updateAmbientDot(entries: Task[]) {
+  if (doneHideTimer !== null) {
+    clearTimeout(doneHideTimer);
+    doneHideTimer = null;
+  }
+
+  const tasks = entries.filter(e => !isThought(e));
+  const sorted = sortByUrgency(tasks);
+  const latest = sorted[0];
+
+  if (!latest || !AMBIENT_STATUSES.has(latest.status)) {
+    hideAmbientDot();
+    clearDoneSnapshot();
+    return;
+  }
+
+  const taskChanged = latest.id !== ambientTaskId;
+  if (taskChanged) {
+    ambientTaskId = latest.id;
+    if (latest.status === 'done') {
+      // Only show if we have a stored timestamp — no ts means the window already
+      // expired and was cleared, so don't restart the timer on restart.
+      const stored = readDoneSnapshot();
+      if (stored && stored.id === latest.id) {
+        ambientDoneShownAt = stored.ts;
+      } else {
+        ambientDoneShownAt = null;
+      }
+    } else {
+      ambientDoneShownAt = null;
+      clearDoneSnapshot();
+    }
+  } else if (latest.status === 'done' && ambientDoneShownAt === null) {
+    ambientDoneShownAt = Date.now();
+    writeDoneSnapshot(latest.id, ambientDoneShownAt);
+  } else if (latest.status !== 'done') {
+    ambientDoneShownAt = null;
+    clearDoneSnapshot();
+  }
+
+  if (latest.status === 'done') {
+    if (ambientDoneShownAt === null) {
+      hideAmbientDot();
+      return;
+    }
+    const age = Date.now() - ambientDoneShownAt;
+    if (age >= DONE_MAX_VISIBLE_MS) {
+      hideAmbientDot();
+      clearDoneSnapshot();
+      return;
+    }
+    // Self-fire the hide check even when no new task data arrives.
+    doneHideTimer = setTimeout(() => updateAmbientDot(storedTasks), DONE_MAX_VISIBLE_MS - age);
+  }
+
+  ambientDot.hidden = false;
+  ambientDot.dataset.status = latest.status as AmbientStatus;
+}
+
+ambientDot.addEventListener('click', () => {
+  if (ambientTaskId) ipcRenderer.send('open-task', ambientTaskId);
+});
+
+function updateBadge(entries: Task[]) {
+  const tasks = entries.filter(e => !isThought(e));
   const actionable = tasks.filter(t => t.status === 'needs_approval' || t.status === 'failed').length;
-  const hasRunning = tasks.some(t => t.status === 'running' || t.status === 'pending');
-  const hasTasks   = tasks.length > 0;
+  const hasTasks   = entries.length > 0;
 
   browseBtn.classList.toggle('has-tasks', hasTasks);
 
@@ -134,9 +291,6 @@ function updateBadge(tasks: Task[]) {
     browseBadge.textContent = String(actionable);
     browseBadge.classList.add('visible');
     browseBadge.classList.remove('pulse');
-  } else if (hasRunning) {
-    browseBadge.textContent = '';
-    browseBadge.classList.add('visible', 'pulse');
   } else {
     browseBadge.textContent = '';
     browseBadge.classList.remove('visible', 'pulse');
@@ -153,6 +307,13 @@ function timeAgo(iso: string): string {
 
 function renderTaskList(tasks: Task[]) {
   taskList.innerHTML = '';
+  if (tasks.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'panel-empty';
+    empty.textContent = 'No tasks yet.';
+    taskList.appendChild(empty);
+    return;
+  }
   tasks.forEach(task => {
     const row = document.createElement('div');
     row.className = 'task-row';
@@ -180,12 +341,59 @@ function renderTaskList(tasks: Task[]) {
   });
 }
 
+function renderThoughtList(thoughts: Task[]) {
+  taskList.innerHTML = '';
+  if (thoughts.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'panel-empty';
+    empty.textContent = 'No thoughts captured yet.';
+    taskList.appendChild(empty);
+    return;
+  }
+
+  const visible = thoughts.slice(0, THOUGHTS_VISIBLE_LIMIT);
+
+  visible.forEach(thought => {
+    const row = document.createElement('div');
+    row.className = 'thought-row';
+
+    const name = document.createElement('div');
+    name.className = 'task-name';
+    name.textContent = thought.input;
+
+    const time = document.createElement('div');
+    time.className = 'task-time';
+    time.textContent = timeAgo(thought.created_at);
+
+    row.appendChild(name);
+    row.appendChild(time);
+
+    row.addEventListener('click', () => {
+      ipcRenderer.send('open-task', thought.id);
+    });
+
+    taskList.appendChild(row);
+  });
+
+  if (thoughts.length > THOUGHTS_VISIBLE_LIMIT) {
+    const footer = document.createElement('div');
+    footer.className = 'thought-footer';
+    footer.textContent = `… ${thoughts.length - THOUGHTS_VISIBLE_LIMIT} more on dashboard`;
+    footer.addEventListener('click', () => {
+      ipcRenderer.send('open-task', '');
+    });
+    taskList.appendChild(footer);
+  }
+}
+
 const STATUS_PRIORITY: Record<Task['status'], number> = {
   needs_approval: 0,
+  needs_otp:      0,
   running:        1,
   pending:        1,
   failed:         2,
   done:           3,
+  captured:       4,
 };
 
 function sortByUrgency(tasks: Task[]): Task[] {
@@ -196,21 +404,64 @@ function sortByUrgency(tasks: Task[]): Task[] {
   });
 }
 
-function browseHeight(count: number): number {
-  return Math.min(BASE_H + PANEL_EXTRA + count * ROW_H, MAX_H);
+function sortByRecency(entries: Task[]): Task[] {
+  return [...entries].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 }
 
-function openBrowse(tasks: Task[]) {
+function browseHeight(rowCount: number): number {
+  return Math.min(inputHeight() + PANEL_EXTRA + Math.max(rowCount, 1) * ROW_H, MAX_H);
+}
+
+function renderActiveTab() {
+  tabTasks.classList.toggle('active', activeTab === 'tasks');
+  tabThoughts.classList.toggle('active', activeTab === 'thoughts');
+
+  const { tasks, thoughts } = splitEntries(storedTasks);
+
+  if (activeTab === 'tasks') {
+    renderTaskList(sortByUrgency(tasks));
+    return tasks.length;
+  } else {
+    const sorted = sortByRecency(thoughts);
+    renderThoughtList(sorted);
+    const visible = Math.min(sorted.length, THOUGHTS_VISIBLE_LIMIT);
+    const footer = sorted.length > THOUGHTS_VISIBLE_LIMIT ? 1 : 0;
+    return visible + footer;
+  }
+}
+
+function openBrowse(entries: Task[]) {
   browseOpen = true;
   browseBtn.classList.add('active');
-  renderTaskList(sortByUrgency(tasks));
-  ipcRenderer.send('resize-window', browseHeight(tasks.length));
+  storedTasks = entries;
+  const visibleRows = renderActiveTab();
+  ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
 }
+
+tabTasks.addEventListener('click', () => {
+  if (activeTab === 'tasks') return;
+  activeTab = 'tasks';
+  if (browseOpen) {
+    const visibleRows = renderActiveTab();
+    ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
+  }
+});
+
+tabThoughts.addEventListener('click', () => {
+  if (activeTab === 'thoughts') return;
+  activeTab = 'thoughts';
+  if (browseOpen) {
+    const visibleRows = renderActiveTab();
+    ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
+  }
+});
 
 function closeBrowse() {
   browseOpen = false;
   browseBtn.classList.remove('active');
-  ipcRenderer.send('resize-window', BASE_H);
+  ipcRenderer.send('set-size', { w: currentWidth(), h: inputHeight() });
 }
 
 // ── Browse button toggle ──
@@ -225,8 +476,10 @@ browseBtn.addEventListener('click', () => {
 
 // ── Input handlers ──
 input.addEventListener('input', () => {
-  input.classList.toggle('has-text', input.value.length > 0);
-  updateWidth();
+  const hasText = input.value.length > 0;
+  input.classList.toggle('has-text', hasText);
+  if (hasText) expandInput();
+  updateSize();
 });
 
 input.addEventListener('keydown', (e) => {
@@ -239,7 +492,7 @@ function dismiss() {
     closeBrowse();
     return;
   }
-  resetWidth();
+  resetSize();
   pill.classList.remove('drop');
   void pill.offsetHeight;
   pill.classList.add('collapse');
@@ -300,10 +553,11 @@ function spawnConfetti() {
 }
 
 // ── Commands ──
-const COMMANDS: Record<string, { status: string; label: string }> = {
-  '/clear failed': { status: 'failed', label: 'Cleared' },
-  '/clear done':   { status: 'done',   label: 'Cleared' },
-  '/clear pending':{ status: 'pending',label: 'Cleared' },
+const COMMANDS: Record<string, { target: string; label: string }> = {
+  '/clear failed':   { target: 'failed',   label: 'Cleared' },
+  '/clear done':     { target: 'done',     label: 'Cleared' },
+  '/clear pending':  { target: 'pending',  label: 'Cleared' },
+  '/clear thoughts': { target: 'thoughts', label: 'Cleared' },
 };
 
 ipcRenderer.on('clear-result', (_: unknown, count: number) => {
@@ -315,7 +569,7 @@ function collapseAndConfirm(message: string) {
   if (textEl) textEl.textContent = message;
 
   if (browseOpen) { browseOpen = false; browseBtn.classList.remove('active'); }
-  resetWidth();
+  resetSize();
 
   pill.classList.remove('drop');
   void pill.offsetHeight;
@@ -334,7 +588,7 @@ function submit() {
 
   const cmd = COMMANDS[raw.toLowerCase()];
   if (cmd) {
-    ipcRenderer.send('clear-tasks', cmd.status);
+    ipcRenderer.send('clear-tasks', cmd.target);
     return;
   }
 

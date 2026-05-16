@@ -4,7 +4,7 @@ import { classifyEntry, detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
 import { listEvents, createEvent } from "@/lib/googleCalendar";
-import { searchContacts, getLastMessage, listRecentMessages } from "@/lib/whatsapp";
+import { searchContacts, getLastMessage, listRecentMessages, resolveRecipient } from "@/lib/whatsapp";
 
 function formatEventList(events: Awaited<ReturnType<typeof listEvents>>): string {
   if (events.length === 0) return "No events found in that time range.";
@@ -33,8 +33,20 @@ export const executeTask = inngest.createFunction(
   async ({ event, step }) => {
     const { id, input } = event.data;
 
-    // Classify first: thought (capture-only) vs task (run intent router)
+    // Classify first: thought (capture-only) vs task (run intent router).
+    // Promoted tasks already have entry_type='task' — skip re-classification.
     const classification = await step.run("classify-entry", async () => {
+      const { data: row, error: fetchErr } = await supabase
+        .from("tasks")
+        .select("entry_type")
+        .eq("id", id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      if (row.entry_type === "task") {
+        return { entry_type: "task" as const, tags: [] as string[], confidence: 1 };
+      }
+
       const result = await classifyEntry(input);
       console.log(`[classify] "${input}" →`, JSON.stringify(result));
       const { error } = await supabase
@@ -243,27 +255,30 @@ export const executeTask = inngest.createFunction(
 
         const proposedMessage = await step.run("whatsapp-resolve-recipient", async () => {
           console.log(`[whatsapp-send] recipient_query="${intent.recipient_query}" body="${intent.message_body}"`);
-          const contacts = searchContacts(intent.recipient_query);
-          console.log(`[whatsapp-send] contacts found: ${contacts.length}`, contacts);
-          if (contacts.length === 0) {
+          const resolved = resolveRecipient(intent.recipient_query);
+          if (!resolved) {
             throw new Error(`No contact found matching "${intent.recipient_query}"`);
           }
-          const contact = contacts[0];
+          console.log(`[whatsapp-send] resolved → ${resolved.name} (${resolved.jid})${resolved.alias ? ` via alias "${resolved.alias}"` : ''}`);
           return {
-            recipient: contact.jid,
-            recipient_name: contact.name,
+            recipient: resolved.jid,
+            recipient_name: resolved.name,
             body: intent.message_body,
+            ...(resolved.alias ? { alias: resolved.alias } : {}),
           };
         });
 
         await step.run("update-needs-approval-whatsapp", async () => {
+          const label = proposedMessage.alias
+            ? `${proposedMessage.alias} (${proposedMessage.recipient_name})`
+            : proposedMessage.recipient_name;
           const { error } = await supabase
             .from("tasks")
             .update({
               status: "needs_approval",
               requires_approval: true,
               proposed_message: proposedMessage,
-              result_summary: `Send to ${proposedMessage.recipient_name}: "${proposedMessage.body}"`,
+              result_summary: `Send to ${label}: "${proposedMessage.body}"`,
             })
             .eq("id", id);
           if (error) throw error;
@@ -353,8 +368,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
         }
       });
 
-      const unknownItems = parsedItems.filter((item) => !lookupSKU(item.name));
-      const needsMCP = unknownItems.length > 0;
+      const needsMCP = parsedItems.length > 0;
 
       if (needsMCP) {
         const loginStatus = await step.run("blinkit-check-login", async () => {
@@ -424,6 +438,20 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
             const sku = lookupSKU(item.name);
 
             if (sku) {
+              let image_url: string | undefined;
+              if (mcp) {
+                try {
+                  const searchResult = await callTool(mcp, "search", { query: sku.name });
+                  const imgMatch = searchResult?.match(new RegExp(`ID:\\s*${sku.id}[^\\n]*IMG:\\s*(https?:\\/\\/\\S+)`));
+                  if (!imgMatch) {
+                    // fallback: grab first IMG in results
+                    const anyImg = searchResult?.match(/IMG:\s*(https?:\/\/\S+)/);
+                    image_url = anyImg?.[1];
+                  } else {
+                    image_url = imgMatch[1];
+                  }
+                } catch {}
+              }
               cart.push({
                 requested: item.name,
                 name: sku.name,
@@ -431,6 +459,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
                 quantity: item.quantity,
                 unit_price: "",
                 url: sku.url,
+                image_url,
               });
               continue;
             }
@@ -497,17 +526,21 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
             const idMatch = chosen.match(/ID:\s*([^\s|]+)/);
             const priceMatch = chosen.match(/₹[\d,]+/);
             const nameMatch = chosen.match(/\|\s*(.+?)\s*-\s*₹/);
+            const imgMatch = chosen.match(/IMG:\s*(https?:\/\/\S+)/);
 
             const productId = idMatch?.[1] ?? "";
             const productName = nameMatch?.[1]?.trim() ?? item.name;
             const slug = productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            const productUrl = productId ? `https://blinkit.com/prn/${slug}/prid/${productId}` : undefined;
+            const image_url = imgMatch?.[1] ?? undefined;
             cart.push({
               requested: item.name,
               name: productName,
               product_id: productId,
               quantity: item.quantity,
               unit_price: priceMatch?.[0] ?? "",
-              url: productId ? `https://blinkit.com/prn/${slug}/prid/${productId}` : undefined,
+              url: productUrl,
+              image_url,
               not_found: !productId,
             });
           }

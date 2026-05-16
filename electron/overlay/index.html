@@ -6,15 +6,22 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body { background: transparent !important; }
+
     body {
       overflow: hidden;
-      background: transparent;
-      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-family: -apple-system, "SF Pro Text", "SF Pro Display", sans-serif;
       -webkit-app-region: drag;
       height: 100vh;
     }
 
-    /* ── Pill — drops from notch ── */
+    /* No separate ambient shell — the .pill itself is always visible and
+       serves both ambient (window short) and open (window tall) modes. */
+
+    /* ── Pill — always visible. Ambient mode shows just the rounded-bottom
+       strip below the notch (window is short); on hover the window grows
+       and the input row is revealed. No scaleY animation — window-resize
+       animation in main process drives the drop/collapse feel. ── */
     .pill {
       width: 100%;
       background: #000000;
@@ -27,23 +34,6 @@
       height: 100vh;
       overflow: hidden;
       position: relative;
-      transform-origin: top center;
-      transform: scaleY(0);
-    }
-
-    .pill.drop    { animation: dropDown 0.2s linear forwards; }
-    .pill.collapse { animation: collapseUp 0.07s cubic-bezier(0.4, 0, 1, 1) forwards; }
-
-    @keyframes dropDown {
-      0%   { transform: scaleY(0);    }
-      55%  { transform: scaleY(1.07); }
-      75%  { transform: scaleY(0.97); }
-      100% { transform: scaleY(1);    }
-    }
-
-    @keyframes collapseUp {
-      0%   { transform: scaleY(1); }
-      100% { transform: scaleY(0); }
     }
 
     .pill.drop .input-row { animation: fadeIn 0.1s ease 0.12s both; }
@@ -53,21 +43,37 @@
       to   { opacity: 1; }
     }
 
-    /* ── Input row — fixed 75px, visually unchanged from before ── */
+    /* ── Input row — animates between default 68px and expanded 99px ── */
     .input-row {
-      flex: 0 0 75px;
+      flex: 0 0 68px;
       display: flex;
-      align-items: flex-end;
-      padding: 0 14px 14px 14px;
+      align-items: center;
+      padding: 20px 14px 0 14px;
       gap: 8px;
+      transition: flex-basis 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.15s ease;
     }
+
+    /* Hide input content in resting/ambient mode so the pill looks like a
+       clean notch extension. Dot is outside .input-row so it stays visible. */
+    body:not(.overlay-open) .input-row {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pill.expanded .input-row {
+      flex: 0 0 68px;
+    }
+
+    .pill.expanded .browse-btn { color: rgba(255,255,255,0.22); }
+    .pill.expanded .browse-btn:hover { color: rgba(255,255,255,0.55); }
 
     input {
       flex: 1;
       background: transparent;
       border: none;
       color: rgba(255,255,255,0.9);
-      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-family: -apple-system, "SF Pro Text", "SF Pro Display", sans-serif;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: -0.02em;
@@ -79,7 +85,7 @@
     }
 
     input.has-text { font-weight: 700; }
-    input::placeholder { color: rgba(255,255,255,0.22); font-weight: 300; }
+    input::placeholder { color: rgba(255,255,255,0.22); font-weight: 700; }
 
     /* ── Browse button ── */
     .browse-btn {
@@ -146,6 +152,38 @@
       flex-shrink: 0;
     }
 
+    /* ── Tabs (Tasks / Thoughts) — Nook-style ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 8px 10px 4px;
+      flex-shrink: 0;
+      -webkit-app-region: no-drag;
+    }
+
+    .tab {
+      flex: 0 0 auto;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border-radius: 99px;
+      color: rgba(255,255,255,0.45);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      -webkit-app-region: no-drag;
+    }
+
+    .tab:hover { color: rgba(255,255,255,0.7); }
+
+    .tab.active {
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.85);
+      font-weight: 600;
+    }
+
     .task-list {
       flex: 1;
       overflow-y: auto;
@@ -162,7 +200,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 8px;
+      padding: 7px 10px;
       cursor: pointer;
       border-radius: 6px;
       -webkit-app-region: no-drag;
@@ -172,8 +210,8 @@
     .task-row:hover { background: rgba(255,255,255,0.06); }
 
     .status-dot {
-      width: 5px;
-      height: 5px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       flex-shrink: 0;
     }
@@ -183,6 +221,43 @@
     .status-dot.done           { background: #22c55e; }
     .status-dot.needs_approval { background: #eab308; }
     .status-dot.failed         { background: #ef4444; }
+    .status-dot.captured       { background: rgba(255,255,255,0.2); }
+
+    /* ── Thought row — no dot, slight left indent ── */
+    .thought-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px 7px 12px;
+      cursor: pointer;
+      border-radius: 6px;
+      -webkit-app-region: no-drag;
+      transition: background 0.1s;
+      border-left: 1px dotted rgba(255,255,255,0.16);
+      margin-left: 2px;
+    }
+
+    .thought-row:hover { background: rgba(255,255,255,0.06); }
+
+    .thought-footer {
+      padding: 8px 10px;
+      font-size: 10px;
+      color: rgba(255,255,255,0.28);
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      -webkit-app-region: no-drag;
+      text-align: center;
+    }
+
+    .thought-footer:hover { color: rgba(255,255,255,0.55); }
+
+    .panel-empty {
+      padding: 18px 10px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.22);
+      text-align: center;
+      letter-spacing: -0.01em;
+    }
 
     @keyframes dotPulse {
       0%, 100% { opacity: 1; }
@@ -191,20 +266,21 @@
 
     .task-name {
       flex: 1;
-      font-size: 12px;
-      font-weight: 400;
-      color: rgba(255,255,255,0.6);
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.82);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      letter-spacing: -0.01em;
+      letter-spacing: -0.005em;
     }
 
     .task-time {
-      font-size: 10px;
-      color: rgba(255,255,255,0.18);
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
       flex-shrink: 0;
-      letter-spacing: 0.02em;
+      letter-spacing: 0;
+      font-variant-numeric: tabular-nums;
     }
 
     /* ── Notch confirmation — shows after collapse ── */
@@ -253,7 +329,7 @@
       position: absolute;
       visibility: hidden;
       white-space: pre;
-      font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+      font-family: -apple-system, "SF Pro Text", "SF Pro Display", sans-serif;
       font-size: 15px;
       font-weight: 700;
       letter-spacing: -0.02em;
@@ -265,6 +341,55 @@
       position: absolute;
       inset: 0;
       pointer-events: none;
+    }
+
+    /* ── Ambient status dot — fixed near notch.
+       In ambient mode: centered just below notch cutout.
+       In open mode: top-left corner of pill (notch only covers center, so
+       corners are visible without overlapping the input row content). ── */
+    /* Status dot — same position in ambient and open modes (top-right of
+       the pill, just past notch edge). x is outside notch hardware, so it's
+       always visible regardless of window height. */
+    .ambient-dot {
+      position: fixed;
+      top: 7px;
+      right: 18px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      z-index: 9999;
+      background: transparent;
+      transition: background 0.15s ease;
+    }
+
+    .ambient-dot[hidden] { display: none; }
+
+    .ambient-dot[data-status="running"] {
+      background: #eab308;
+      animation: ambientPulse 1s ease-in-out infinite;
+    }
+    .ambient-dot[data-status="needs_approval"],
+    .ambient-dot[data-status="needs_otp"] {
+      background: #f97316;
+      animation: ambientPulse 1.4s ease-in-out infinite;
+    }
+    .ambient-dot[data-status="done"]    { background: #22c55e; }
+    .ambient-dot[data-status="failed"]  { background: #ef4444; }
+    .ambient-dot[data-status="pending"],
+    .ambient-dot[data-status="captured"] {
+      background: rgba(255,255,255,0.55);
+      animation: ambientPulseFaint 2s ease-in-out infinite;
+    }
+
+    @keyframes ambientPulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.25; }
+    }
+    @keyframes ambientPulseFaint {
+      0%, 100% { opacity: 0.95; }
+      50%      { opacity: 0.5; }
     }
   </style>
 </head>
@@ -287,11 +412,18 @@
 
     <div class="task-panel" id="taskPanel">
       <div class="task-separator"></div>
+      <div class="tabs" id="tabs">
+        <button class="tab active" id="tabTasks" data-tab="tasks" tabindex="-1">Tasks</button>
+        <button class="tab" id="tabThoughts" data-tab="thoughts" tabindex="-1">Thoughts</button>
+      </div>
       <div class="task-list" id="taskList"></div>
     </div>
 
     <canvas id="confetti"></canvas>
   </div>
+
+  <!-- ambient status dot — most-recent-task indicator, sits just below notch -->
+  <div id="ambientDot" class="ambient-dot" hidden title="Open most recent task"></div>
 
   <!-- notch confirmation shown after collapse -->
   <div class="notch-confirm" id="notchConfirm">
