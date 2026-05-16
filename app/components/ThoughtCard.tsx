@@ -13,6 +13,7 @@ export default function ThoughtCard({
   onDelete?: (id: string) => void;
 }) {
   const [promoting, setPromoting] = useState(false);
+  const [promoted, setPromoted] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.input);
@@ -50,16 +51,17 @@ export default function ThoughtCard({
     await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
   }
 
-  async function handlePromote() {
-    if (promoting) return;
+  async function handlePromote(): Promise<boolean> {
+    if (promoting || promoted) return false;
     setPromoting(true);
     try {
       const res = await fetch(`/api/tasks/${task.id}/promote`, { method: 'POST' });
       if (!res.ok) throw new Error(await res.text());
-      // Source thought stays — it's the audit trail. The new task arrives via
-      // real-time subscription on the dashboard.
+      setPromoted(true);
+      return true;
     } catch (err) {
       console.error('Promote failed:', err);
+      return false;
     } finally {
       setPromoting(false);
     }
@@ -164,11 +166,11 @@ export default function ThoughtCard({
         </div>
       )}
 
-      {isLowConfidence && (
+      {isLowConfidence && !promoted && (
         <button
           onClick={async () => {
-            await handlePromote();
-            setHidden(true);
+            const ok = await handlePromote();
+            if (ok) setHidden(true);
           }}
           className="text-[11px] italic self-start transition-colors"
           style={{ color: 'rgba(255,255,255,0.28)' }}
@@ -220,11 +222,11 @@ export default function ThoughtCard({
             </button>
             <button
               onClick={handlePromote}
-              disabled={promoting}
+              disabled={promoting || promoted}
               className="text-xs disabled:opacity-40"
-              style={{ color: 'rgba(255,255,255,0.5)' }}
+              style={{ color: promoted ? '#22c55e' : 'rgba(255,255,255,0.5)' }}
             >
-              {promoting ? 'Promoting…' : 'Promote to task'}
+              {promoting ? 'Promoting…' : promoted ? 'Queued' : 'Promote to task'}
             </button>
             <button
               onClick={handleDelete}

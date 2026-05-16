@@ -33,8 +33,20 @@ export const executeTask = inngest.createFunction(
   async ({ event, step }) => {
     const { id, input } = event.data;
 
-    // Classify first: thought (capture-only) vs task (run intent router)
+    // Classify first: thought (capture-only) vs task (run intent router).
+    // Promoted tasks already have entry_type='task' — skip re-classification.
     const classification = await step.run("classify-entry", async () => {
+      const { data: row, error: fetchErr } = await supabase
+        .from("tasks")
+        .select("entry_type")
+        .eq("id", id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      if (row.entry_type === "task") {
+        return { entry_type: "task" as const, tags: [] as string[], confidence: 1 };
+      }
+
       const result = await classifyEntry(input);
       console.log(`[classify] "${input}" →`, JSON.stringify(result));
       const { error } = await supabase

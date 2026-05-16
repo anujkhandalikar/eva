@@ -89,16 +89,20 @@ export async function executeOrder(
     const clearResult = await callTool(mcp, "clear_cart");
     console.log("[blinkit] clear_cart:", clearResult.slice(0, 400));
 
-    // For each item: search → find product matching SKU map ID → add fresh qty.
+    // For each item: search → find product matching stored product_id → add fresh qty.
+    // Use item.requested (raw phrase) — same query that produced the stored ID at proposal
+    // time. Searching by item.name (chosen display name) may return different rankings/IDs
+    // and break strict ID match in pickProductId.
     for (const item of itemsToAdd) {
-      const searchOutput = await callTool(mcp, "search", { query: item.name });
+      const query = item.requested || item.name;
+      const searchOutput = await callTool(mcp, "search", { query });
       console.log("[blinkit] search output:", searchOutput.slice(0, 1500));
 
       const domId = pickProductId(searchOutput, item);
       if (!domId) {
         throw new Error(`No matching product for "${item.name}" in search results.`);
       }
-      console.log(`[blinkit] picked DOM id ${domId} for "${item.name}" (SKU map ${item.product_id})`);
+      console.log(`[blinkit] picked DOM id ${domId} for "${item.name}" (stored id ${item.product_id})`);
 
       // Add the correct quantity
       await callTool(mcp, "add_to_cart", { item_id: domId, quantity: item.quantity });

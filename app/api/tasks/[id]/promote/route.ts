@@ -50,17 +50,16 @@ export async function POST(
 
     if (insErr) throw insErr;
 
-    const { error: linkErr } = await supabase
-      .from('tasks')
-      .update({ promoted_to_task_id: created.id })
-      .eq('id', source.id);
-
-    if (linkErr) throw linkErr;
-
     await inngest.send({
       name: 'task/created',
       data: { id: created.id, input: created.input },
     });
+
+    // Best-effort link — non-critical audit trail
+    await supabase
+      .from('tasks')
+      .update({ promoted_to_task_id: created.id })
+      .eq('id', source.id);
 
     return NextResponse.json({ task: created });
   } catch (error: unknown) {
