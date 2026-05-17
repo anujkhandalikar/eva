@@ -148,11 +148,14 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
             {rerunning ? '⏳' : '↺'}
           </button>
 
-          {/* Explore — bottom center */}
-          <div ref={dropdownRef} style={{ position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 40 }}>
+          {/* Explore — mobile: bottom center; desktop: bottom right */}
+          <div
+            ref={dropdownRef}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 sm:left-auto sm:right-8 sm:translate-x-0 z-40"
+          >
             {dropdownOpen && (
               <div
-                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-2xl overflow-hidden"
+                className="absolute bottom-full left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 mb-2 w-64 rounded-2xl overflow-hidden"
                 style={{
                   background: 'rgba(20,20,20,0.95)',
                   border: '1px solid rgba(255,255,255,0.1)',

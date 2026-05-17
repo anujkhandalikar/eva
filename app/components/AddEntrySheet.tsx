@@ -4,6 +4,29 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 
 const TOKEN_KEY = 'eva_submit_token';
 
+const PLACEHOLDERS = [
+  "Unleash me…",
+  "I don't sleep. You do.",
+  "Feed me a task.",
+  "I'm bored. Fix that.",
+  "Do your worst.",
+  "Go on then.",
+  "I've been waiting.",
+  "Another one? Let's go.",
+  "Brain full? Offload.",
+  "I live for this.",
+  "Say the thing.",
+  "I'm faster than you.",
+  "Speak.",
+  "Hit me.",
+  "No task too cursed.",
+  "Finally.",
+  "Clock's ticking.",
+  "Bold of you to need help.",
+  "I've seen worse. Probably.",
+  "Task or I riot.",
+];
+
 export interface AddEntrySheetHandle {
   focus: () => void;
 }
@@ -20,6 +43,7 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
   const [needsToken, setNeedsToken] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<'captured' | 'error' | 'badtoken' | null>(null);
+  const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const tokenRef = useRef<HTMLInputElement>(null);
@@ -41,6 +65,7 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
       setInput('');
       setTokenInput('');
       setFeedback(null);
+      setPlaceholder(PLACEHOLDERS[Math.floor(Math.random() * PLACEHOLDERS.length)]);
     }
   }, [open]);
 
@@ -148,7 +173,7 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
           value={input}
           onChange={(e) => { setInput(e.target.value); setFeedback(null); }}
           onKeyDown={handleKeyDown}
-          placeholder="Capture a task or thought…"
+          placeholder={placeholder}
           rows={3}
           suppressHydrationWarning
           className="w-full rounded-xl px-4 py-3 resize-none outline-none"
@@ -177,17 +202,9 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
             {feedback === 'captured' && 'Captured ✓'}
             {feedback === 'error' && 'Something went wrong'}
             {feedback === 'badtoken' && 'Wrong token'}
-            {!feedback && 'Eva will classify it'}
           </span>
 
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-full text-xs font-semibold"
-              style={{ color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.09)' }}
-            >
-              Cancel
-            </button>
             <button
               onClick={handleSubmit}
               disabled={submitting || !input.trim()}

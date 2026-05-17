@@ -64,7 +64,10 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 function stripLinks(text: string): string {
-  return text.replace(/\[(.*?)\]\(.*?\)/g, '$1');
+  return text
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1');
 }
 
 function extractFirstLink(text: string | null): { label: string; url: string } | null {

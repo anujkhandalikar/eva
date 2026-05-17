@@ -380,8 +380,10 @@ ${NO_HEDGING}${tail}`;
       return `You are EVA. Explain the concept or how-to clearly and tightly. Search the web if the topic is technical or recent enough that you'd risk staleness.
 
 OUTPUT — choose the shape that fits:
-- For a concept: 3 bullets — WHAT IT IS (one sentence), HOW IT WORKS (one sentence on the mechanism), WHY IT MATTERS (one sentence on the practical consequence).
+- For a concept: 3 bullets. Internally use the frame WHAT IT IS / HOW IT WORKS / WHY IT MATTERS to shape each bullet, but DO NOT include those labels in the output. Output only the three plain sentences, one per bullet.
 - For a how-to: numbered steps (3–6), each ≤ 1 short sentence, imperative voice.
+
+NEVER use markdown bold (**), italics (*), or label prefixes like "WHAT IT IS:" in output. Plain prose only.
 
 ${LINK_RULE_ONE}
 
