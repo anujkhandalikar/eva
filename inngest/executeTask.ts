@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { classifyEntry, detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
-import { listEvents, createEvent } from "@/lib/googleCalendar";
+import { listEvents, createEvent, createTask, listTasks } from "@/lib/googleCalendar";
 import { searchContacts, getLastMessage, listRecentMessages, resolveRecipient } from "@/lib/whatsapp";
 
 function formatEventList(events: Awaited<ReturnType<typeof listEvents>>): string {
@@ -113,6 +113,63 @@ export const executeTask = inngest.createFunction(
 
           await step.run("update-status-done-calendar", async () => {
             const summary = formatEventList(events);
+            const { error } = await supabase
+              .from("tasks")
+              .update({ status: "done", result_summary: summary })
+              .eq("id", id);
+            if (error) throw error;
+          });
+        } else if (action.type === "task_create") {
+          await step.run("set-task-type-calendar", async () => {
+            const { error } = await supabase
+              .from("tasks")
+              .update({ task_type: "calendar", calendar_action: action })
+              .eq("id", id);
+            if (error) throw error;
+          });
+
+          const created = await step.run("create-task-item", async () => {
+            return await createTask({ title: action.title, dueDate: action.dueDate });
+          });
+
+          await step.run("update-status-done-task-created", async () => {
+            const due = new Date(`${created.date}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+              weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Kolkata",
+            });
+            const { error } = await supabase
+              .from("tasks")
+              .update({
+                status: "done",
+                result_summary: `Added to tasks: "${created.title}" — due ${due}`,
+                calendar_event_id: created.id,
+              })
+              .eq("id", id);
+            if (error) throw error;
+          });
+        } else if (action.type === "task_list") {
+          await step.run("set-task-type-calendar", async () => {
+            const { error } = await supabase
+              .from("tasks")
+              .update({ task_type: "calendar", calendar_action: action })
+              .eq("id", id);
+            if (error) throw error;
+          });
+
+          const items = await step.run("list-task-items", async () => {
+            return await listTasks();
+          });
+
+          await step.run("update-status-done-task-list", async () => {
+            const summary = items.length === 0
+              ? "No open tasks."
+              : items
+                  .map((t) => {
+                    const due = new Date(`${t.date}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+                      weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Kolkata",
+                    });
+                    return `- ${t.title} (${due})`;
+                  })
+                  .join("\n");
             const { error } = await supabase
               .from("tasks")
               .update({ status: "done", result_summary: summary })

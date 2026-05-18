@@ -134,8 +134,8 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
         {needsToken && (
           <div className="mb-4">
             <p
-              className="text-xs font-medium mb-2 uppercase tracking-widest"
-              style={{ color: 'rgba(255,255,255,0.3)' }}
+              className="eva-eyebrow mb-2"
+              style={{ color: 'rgba(255,255,255,0.32)' }}
             >
               {feedback === 'badtoken' ? 'Wrong token — try again' : 'Enter access token'}
             </p>
@@ -159,9 +159,11 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
               style={{
                 background: 'rgba(255,255,255,0.06)',
                 border: `1px solid ${feedback === 'badtoken' ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                color: 'rgba(255,255,255,0.85)',
+                color: 'rgba(255,255,255,0.88)',
                 caretColor: 'white',
                 fontSize: 16,
+                fontWeight: 600,
+                letterSpacing: '0.04em',
               }}
             />
           </div>
@@ -180,23 +182,25 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
           style={{
             background: 'rgba(255,255,255,0.05)',
             border: '1px solid rgba(255,255,255,0.09)',
-            color: 'rgba(255,255,255,0.9)',
+            color: 'rgba(255,255,255,0.92)',
             caretColor: 'white',
-            lineHeight: 1.6,
+            lineHeight: 1.45,
             fontSize: 16,
+            fontWeight: 700,
+            letterSpacing: '-0.022em',
           }}
         />
 
         {/* Footer */}
         <div className="flex items-center justify-between mt-3">
           <span
-            className="text-xs"
+            className="eva-micro"
             style={{
               color: feedback === 'captured'
                 ? 'rgba(34,197,94,0.9)'
                 : feedback === 'error' || feedback === 'badtoken'
-                  ? 'rgba(239,68,68,0.8)'
-                  : 'rgba(255,255,255,0.2)',
+                  ? 'rgba(239,68,68,0.85)'
+                  : 'rgba(255,255,255,0.22)',
             }}
           >
             {feedback === 'captured' && 'Captured ✓'}
@@ -208,8 +212,8 @@ const AddEntrySheet = forwardRef<AddEntrySheetHandle, Props>(function AddEntrySh
             <button
               onClick={handleSubmit}
               disabled={submitting || !input.trim()}
-              className="px-5 py-2 rounded-full text-xs font-semibold disabled:opacity-30 transition-opacity"
-              style={{ background: 'rgba(255,255,255,0.9)', color: '#111' }}
+              className="eva-tab px-5 py-2 rounded-full disabled:opacity-30 transition-opacity"
+              style={{ background: 'rgba(255,255,255,0.92)', color: '#111', fontWeight: 600 }}
             >
               {submitting ? 'Sending…' : 'Send'}
             </button>

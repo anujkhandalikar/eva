@@ -100,9 +100,9 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
 
   if (localQueue.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: 'rgba(255,255,255,0.22)' }}>
+      <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: 'rgba(255,255,255,0.24)' }}>
         <Layers size={48} style={{ opacity: 0.15 }} />
-        <p>No tasks left in the pile.</p>
+        <p className="eva-micro">No tasks left in the pile.</p>
       </div>
     );
   }
@@ -127,7 +127,7 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
         </AnimatePresence>
       </div>
 
-      <div className="shrink-0 h-28 flex items-start justify-center pt-3 text-sm tabular-nums font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>
+      <div className="shrink-0 h-28 flex items-start justify-center pt-3 eva-meta" style={{ color: 'rgba(255,255,255,0.24)' }}>
         {currentPos}/{localQueue.length}
       </div>
 
@@ -164,7 +164,7 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
                 }}
               >
                 <div className="px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                  <p className="eva-eyebrow" style={{ color: 'rgba(255,255,255,0.28)' }}>
                     Explore
                   </p>
                 </div>
@@ -180,10 +180,10 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
                     >
                       <span className="text-base leading-none mt-0.5">{angle.emoji}</span>
                       <div>
-                        <p className="text-sm font-medium leading-snug" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                        <p style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.3 }}>
                           {angle.label}
                         </p>
-                        <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                        <p className="eva-micro mt-0.5" style={{ color: 'rgba(255,255,255,0.38)', fontWeight: 400 }}>
                           {angle.sublabel}
                         </p>
                       </div>

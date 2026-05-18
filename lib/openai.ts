@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { EVA_CONTEXT, isAboutEva } from "./evaContext";
 
 const apiKey = process.env.OPENAI_API_KEY;
 
@@ -41,11 +42,23 @@ export type CalendarDeleteAction = {
   eventSummary: string;
 };
 
+export type CalendarTaskCreateAction = {
+  type: "task_create";
+  title: string;
+  dueDate?: string;
+};
+
+export type CalendarTaskListAction = {
+  type: "task_list";
+};
+
 export type CalendarAction =
   | CalendarListAction
   | CalendarCreateAction
   | CalendarUpdateAction
-  | CalendarDeleteAction;
+  | CalendarDeleteAction
+  | CalendarTaskCreateAction
+  | CalendarTaskListAction;
 
 export type WhatsAppSendIntent = {
   type: "whatsapp_send";
@@ -127,7 +140,9 @@ TASK = an imperative command for Eva to research, order, schedule, send, look up
 Disambiguation rules:
 - Imperative verb at the start (find, book, send, order, schedule, list, summarize, check, what is, what did, look up, text, message, msg, dm, ping, whatsapp, wa, tell, reply, email, call) → task
 - Messaging intent ("text X on group Y", "send X to Y", "message Y saying X", "dm Y", "ping Y", "tell Y to ...") → task, even if the message body sounds casual ("goodnight", "thanks", "ok"). The casual word is the payload, not a thought.
-- Declarative, past tense, or self-directed ("I should", "remember", "remind me", "X is broken", "wonder if") → thought
+- Explicit to-do markers ("todo:", "task:", "add task", "add to my list", "to-do", "what's on my list", "show my todos") → task. Eva tracks these in the user's task list.
+- Declarative, past tense, or self-directed ("I should", "remember", "X is broken", "wonder if") → thought
+- "remind me to X" without an explicit time → task (goes to the user's task list). With a specific time ("remind me at 3pm") → task (scheduled calendar event).
 - When genuinely ambiguous, prefer "thought" — the user can promote it later. Avoid false-positive task execution.
 
 If thought, assign 0–3 tags from this exact fixed vocabulary (no other tags allowed):
@@ -222,6 +237,14 @@ For CALENDAR UPDATE (rescheduling/editing an existing event), respond:
 For CALENDAR DELETE (cancelling/removing), respond:
 {"type":"calendar","action":{"type":"delete","eventId":"","eventSummary":"name of event to delete"}}
 
+TASK requests: a personal to-do/reminder the user wants to track, NOT a scheduled meeting. Triggers: explicit "todo:", "task:", "add task", "add to my list", "to-do", or a reminder with no specific time ("remind me to renew passport", "I need to call the dentist sometime"). If a specific time is given ("call dad at 3pm tomorrow"), prefer calendar CREATE instead.
+
+For TASK CREATE, respond:
+{"type":"calendar","action":{"type":"task_create","title":"task text","dueDate":"YYYY-MM-DD or omit for today"}}
+
+For TASK LIST ("what's on my list", "show my todos", "open tasks", "what do I need to do"):
+{"type":"calendar","action":{"type":"task_list"}}
+
 BLINKIT ORDER requests: order, buy, or get grocery/food/household items delivered.
 {"type":"blinkit_order","items":[{"name":"item name","quantity":1}]}
 
@@ -239,6 +262,7 @@ Rules:
 - "tomorrow" means the next calendar day from current time
 - Default event duration: 1 hour if not specified
 - For update/delete, set eventId to "" — Eva will search for the event by eventSummary at execution time
+- For task_create, dueDate is YYYY-MM-DD (Asia/Kolkata). Omit to default to today.
 - For blinkit: quantity defaults to 1 if not specified
 - For whatsapp_send: message_body should be the natural message text, not a meta-description
 - Only respond with valid JSON, no other text`,
@@ -344,10 +368,10 @@ SEARCH:
 - Products/companies: find the most recent announcement, not the homepage blurb.
 - If multiple people share a name, pick the most contextually relevant one and flag the ambiguity in bullet 1.
 
-OUTPUT — exactly 3 bullets:
-- VERDICT: a specific claim. Overhyped? Niche? Stalled? Genuinely useful? Don't describe — judge.
-- SHARPEST FACT: one concrete data point — number, date, round size, ship, outcome. If you can't name it, search more.
-- THE CATCH: what most people miss — a limitation, contradiction, recent setback, reframing.
+OUTPUT — exactly 3 bullets, no labels or prefixes:
+- A specific claim. Overhyped? Niche? Stalled? Genuinely useful? Don't describe — judge.
+- One concrete data point — number, date, round size, ship, outcome. If you can't name it, search more.
+- What most people miss — a limitation, contradiction, recent setback, reframing.
 
 ${LINK_RULE_ONE}
 
@@ -447,7 +471,20 @@ export async function processTask(input: string): Promise<TaskResult> {
   const subtype = await classifyResearchSubtype(input);
   console.log(`[research-subtype] "${input}" → ${subtype}`);
 
-  const prompt = promptForSubtype(subtype, input);
+  const basePrompt = promptForSubtype(subtype, input);
+  const selfReferential = isAboutEva(input);
+  if (selfReferential) console.log(`[eva-self] "${input}" → injecting self-context`);
+
+  const prompt = selfReferential
+    ? `ABOUT EVA (the product the user is asking about):
+${EVA_CONTEXT}
+
+The user is asking about Eva itself — this is brainstorming about Eva's own roadmap, features, or design. Use the context above so your verdict reflects what Eva currently is, does, and lacks. Web research is still useful for anything external the question references (e.g. researching an MCP, comparing to other tools).
+
+---
+
+${basePrompt}`
+    : basePrompt;
 
   const response = await client.responses.create({
     model: "gpt-4o",

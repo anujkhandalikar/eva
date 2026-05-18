@@ -6,6 +6,7 @@ import TaskCard, { Task } from '@/app/components/TaskCard';
 import ThoughtCard from '@/app/components/ThoughtCard';
 import ViewToggle, { ViewMode } from '@/app/components/ViewToggle';
 import CardStack from '@/app/components/CardStack';
+import BentoView from '@/app/components/BentoView';
 import FilterBar, { EntryFilter } from '@/app/components/FilterBar';
 import AddEntrySheet, { type AddEntrySheetHandle } from '@/app/components/AddEntrySheet';
 
@@ -154,24 +155,24 @@ export default function Dashboard() {
 
         <div className="flex-1 overflow-hidden pb-4">
           {loading ? (
-            <div className="text-sm animate-pulse" style={{ color: 'rgba(255,255,255,0.22)' }}>
+            <div className="eva-body animate-pulse" style={{ color: 'rgba(255,255,255,0.24)' }}>
               Loading tasks...
             </div>
           ) : tasks.length === 0 ? (
             <div
-              className="text-center p-8 rounded-xl mt-12"
+              className="text-center p-8 rounded-xl mt-12 eva-body"
               style={{
-                color: 'rgba(255,255,255,0.22)',
+                color: 'rgba(255,255,255,0.24)',
                 border: '1px solid rgba(255,255,255,0.07)',
               }}
             >
               No tasks yet. Double tap{' '}
               <kbd
-                className="px-2 py-1 rounded mx-1 text-xs"
+                className="px-2 py-1 rounded mx-1 eva-tag"
                 style={{
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.5)',
+                  color: 'rgba(255,255,255,0.55)',
                 }}
               >
                 Control
@@ -182,6 +183,14 @@ export default function Dashboard() {
             <CardStack
               tasks={tasks.filter((t) => t.entry_type !== 'thought')}
               onDeleteTask={handleDeleteTask}
+            />
+          ) : view === 'bento' ? (
+            <BentoView
+              tasks={tasks}
+              onOpen={(id) => {
+                setView('list');
+                window.location.hash = `entry-${id}`;
+              }}
             />
           ) : (
             <StreamView
@@ -273,18 +282,18 @@ function StreamView({
       />
 
       <div
-        className="text-xs font-medium mb-6 flex items-center justify-between uppercase tracking-widest"
-        style={{ color: 'rgba(255,255,255,0.18)' }}
+        className="eva-eyebrow mb-6 flex items-center justify-between"
+        style={{ color: 'rgba(255,255,255,0.22)' }}
       >
         <span>Stream</span>
-        <span>{filtered.length}</span>
+        <span className="eva-num">{filtered.length}</span>
       </div>
 
       {filtered.length === 0 ? (
         <div
-          className="text-center p-8 rounded-xl"
+          className="text-center p-8 rounded-xl eva-body"
           style={{
-            color: 'rgba(255,255,255,0.22)',
+            color: 'rgba(255,255,255,0.24)',
             border: '1px solid rgba(255,255,255,0.07)',
           }}
         >

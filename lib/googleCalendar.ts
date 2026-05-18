@@ -151,3 +151,90 @@ export async function deleteEvent(eventId: string): Promise<void> {
     eventId,
   });
 }
+
+// --- Google Tasks (faked as all-day events in a dedicated calendar) ---
+//
+// User creates a separate calendar in GCal (e.g. "Eva Tasks") and sets
+// GOOGLE_TASKS_CALENDAR_ID to its ID. Tasks are stored as all-day events
+// with a "[task] " prefix in the summary. Completion = delete event.
+// Falls back to primary calendar if the env var is missing.
+
+const TASK_PREFIX = "[task] ";
+
+function tasksCalendarId(): string {
+  return process.env.GOOGLE_TASKS_CALENDAR_ID || "primary";
+}
+
+function todayIST(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Kolkata" });
+}
+
+function nextDay(dateYmd: string): string {
+  const d = new Date(`${dateYmd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export type TaskItem = {
+  id: string;
+  title: string;
+  date: string;
+};
+
+export type CreateTaskParams = {
+  title: string;
+  dueDate?: string;
+};
+
+export async function createTask(params: CreateTaskParams): Promise<TaskItem> {
+  const calendar = getCalendarClient();
+  const due = params.dueDate ?? todayIST();
+
+  const res = await calendar.events.insert({
+    calendarId: tasksCalendarId(),
+    requestBody: {
+      summary: `${TASK_PREFIX}${params.title}`,
+      start: { date: due },
+      end: { date: nextDay(due) },
+      transparency: "transparent",
+    },
+  });
+
+  return {
+    id: res.data.id ?? "",
+    title: params.title,
+    date: due,
+  };
+}
+
+export async function listTasks(): Promise<TaskItem[]> {
+  const calendar = getCalendarClient();
+  const now = new Date();
+  const back = new Date(now.getTime() - 30 * 86400000);
+  const fwd = new Date(now.getTime() + 365 * 86400000);
+
+  const res = await calendar.events.list({
+    calendarId: tasksCalendarId(),
+    timeMin: back.toISOString(),
+    timeMax: fwd.toISOString(),
+    singleEvents: true,
+    orderBy: "startTime",
+    maxResults: 100,
+  });
+
+  return (res.data.items ?? [])
+    .filter((i) => (i.summary ?? "").startsWith(TASK_PREFIX))
+    .map((i) => ({
+      id: i.id ?? "",
+      title: (i.summary ?? "").slice(TASK_PREFIX.length),
+      date: i.start?.date ?? "",
+    }));
+}
+
+export async function completeTask(eventId: string): Promise<void> {
+  const calendar = getCalendarClient();
+  await calendar.events.delete({
+    calendarId: tasksCalendarId(),
+    eventId,
+  });
+}

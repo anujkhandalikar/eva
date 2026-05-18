@@ -152,24 +152,23 @@ export default function ThoughtCard({
           }}
           disabled={saving}
           rows={1}
-          className="text-base leading-snug resize-none outline-none w-full bg-transparent"
+          className="eva-title resize-none outline-none w-full bg-transparent"
           style={{
             color: 'rgba(255,255,255,0.95)',
-            letterSpacing: '-0.01em',
             border: 'none',
           }}
         />
       ) : task.input ? (
         <p
-          className="text-base leading-snug"
-          style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '-0.01em' }}
+          className="eva-title"
+          style={{ color: 'rgba(255,255,255,0.92)' }}
         >
           {task.input}
         </p>
       ) : task.image_url && task.status === 'pending' ? (
         <p
-          className="text-base leading-snug italic"
-          style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '-0.01em' }}
+          className="eva-title italic"
+          style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}
         >
           Eva is looking at this…
         </p>
@@ -180,9 +179,9 @@ export default function ThoughtCard({
           {tags.map((tag) => (
             <span
               key={tag}
-              className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full"
+              className="eva-tag px-2 py-0.5 rounded-full"
               style={{
-                color: 'rgba(255,255,255,0.45)',
+                color: 'rgba(255,255,255,0.48)',
                 background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.07)',
               }}
@@ -199,8 +198,8 @@ export default function ThoughtCard({
             const ok = await handlePromote();
             if (ok) setHidden(true);
           }}
-          className="text-[11px] italic self-start transition-colors"
-          style={{ color: 'rgba(255,255,255,0.28)' }}
+          className="eva-micro italic self-start transition-colors"
+          style={{ color: 'rgba(255,255,255,0.3)' }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.55)';
           }}
@@ -216,7 +215,7 @@ export default function ThoughtCard({
         className="flex justify-between items-center pt-2"
         style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
       >
-        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>
+        <span className="eva-meta" style={{ color: 'rgba(255,255,255,0.22)' }}>
           {date}
         </span>
         {editing ? (
@@ -224,16 +223,16 @@ export default function ThoughtCard({
             <button
               onClick={handleSaveEdit}
               disabled={saving}
-              className="text-xs disabled:opacity-40"
-              style={{ color: 'rgba(255,255,255,0.7)' }}
+              className="eva-micro disabled:opacity-40"
+              style={{ color: 'rgba(255,255,255,0.72)', fontWeight: 600 }}
             >
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button
               onClick={handleCancelEdit}
               disabled={saving}
-              className="text-xs disabled:opacity-40"
-              style={{ color: 'rgba(255,255,255,0.35)' }}
+              className="eva-micro disabled:opacity-40"
+              style={{ color: 'rgba(255,255,255,0.38)' }}
             >
               Cancel
             </button>
@@ -242,23 +241,23 @@ export default function ThoughtCard({
           <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={() => setEditing(true)}
-              className="text-xs"
-              style={{ color: 'rgba(255,255,255,0.4)' }}
+              className="eva-micro"
+              style={{ color: 'rgba(255,255,255,0.42)' }}
             >
               Edit
             </button>
             <button
               onClick={handlePromote}
               disabled={promoting || promoted}
-              className="text-xs disabled:opacity-40"
-              style={{ color: promoted ? '#22c55e' : 'rgba(255,255,255,0.5)' }}
+              className="eva-micro disabled:opacity-40"
+              style={{ color: promoted ? '#22c55e' : 'rgba(255,255,255,0.52)' }}
             >
               {promoting ? 'Promoting…' : promoted ? 'Queued' : 'Promote to task'}
             </button>
             <button
               onClick={handleDelete}
-              className="text-xs"
-              style={{ color: 'rgba(255,255,255,0.35)' }}
+              className="eva-micro"
+              style={{ color: 'rgba(255,255,255,0.38)' }}
             >
               Delete
             </button>

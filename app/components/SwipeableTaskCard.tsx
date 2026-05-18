@@ -148,8 +148,8 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
                   style={{ background: dotColor }}
                 />
                 <span
-                  className="text-[10px] font-bold uppercase tracking-widest"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                  className="eva-eyebrow"
+                  style={{ color: 'rgba(255,255,255,0.32)' }}
                 >
                   {statusLabels[task.status]}
                 </span>
@@ -158,8 +158,8 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
           )}
 
           <p
-            className="font-bold text-xl leading-snug shrink-0"
-            style={{ color: 'rgba(255,255,255,0.9)', letterSpacing: '-0.02em' }}
+            className="eva-display shrink-0"
+            style={{ color: 'rgba(255,255,255,0.94)' }}
           >
             {task.input}
           </p>
@@ -169,14 +169,14 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
             className={`flex-1 min-h-0 ${expanded ? 'overflow-y-auto' : 'overflow-hidden'}`}
           >
             {(task.result_summary || task.error_reason) ? (
-              <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              <div className="eva-body" style={{ color: 'rgba(255,255,255,0.58)' }}>
                 {task.error_reason ? (
-                  <span className="font-medium" style={{ color: '#ef4444' }}>Error: {task.error_reason}</span>
+                  <span style={{ color: '#ef4444', fontWeight: 500 }}>Error: {task.error_reason}</span>
                 ) : (
                   <ol className="flex flex-col gap-2.5">
                     {resultLines.map((line, i) => (
-                      <li key={i} className="flex gap-2 leading-snug">
-                        <span className="shrink-0 font-medium" style={{ color: 'rgba(255,255,255,0.18)' }}>{i + 1}.</span>
+                      <li key={i} className="flex gap-2">
+                        <span className="shrink-0 eva-num" style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 500 }}>{i + 1}.</span>
                         <span>{stripLinks(line.replace(/^[-–—]\s*/, ''))}</span>
                       </li>
                     ))}
@@ -184,7 +184,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
                 )}
               </div>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm italic" style={{ color: 'rgba(255,255,255,0.22)' }}>
+              <div className="h-full flex items-center justify-center eva-body italic" style={{ color: 'rgba(255,255,255,0.24)' }}>
                 {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
               </div>
             )}
@@ -193,8 +193,8 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
           {overflows && (
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded(prev => !prev); }}
-              className="shrink-0 text-xs transition-colors text-left -mt-2"
-              style={{ color: 'rgba(255,255,255,0.3)' }}
+              className="shrink-0 eva-micro transition-colors text-left -mt-2"
+              style={{ color: 'rgba(255,255,255,0.32)' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.3)'; }}
             >
@@ -232,10 +232,10 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="shrink-0 block text-center py-2 px-4 rounded-full text-sm transition-colors truncate"
+              className="shrink-0 block text-center py-2 px-4 rounded-full eva-micro transition-colors truncate"
               style={{
                 border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.4)',
+                color: 'rgba(255,255,255,0.42)',
               }}
             >
               {(() => {
