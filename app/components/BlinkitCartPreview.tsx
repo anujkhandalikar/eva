@@ -43,7 +43,7 @@ export default function BlinkitCartPreview({ cart, taskId }: BlinkitCartPreviewP
   const missingItems = cart.filter((i) => i.not_found);
 
   const total = foundItems.reduce((sum, item) => {
-    const price = parseInt(item.unit_price.replace(/[^\d]/g, ''), 10) || 0;
+    const price = parseInt((item.unit_price ?? '').replace(/[^\d]/g, ''), 10) || 0;
     return sum + price * item.quantity;
   }, 0);
 

@@ -63,9 +63,6 @@ export default function WhatsAppMessagePreview({
             alias: {message.alias}
           </span>
         )}
-        <span className="eva-num" style={{ color: 'rgba(255,255,255,0.32)', fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace' }}>
-          {message.recipient.replace('@s.whatsapp.net', '')}
-        </span>
       </div>
 
       <p

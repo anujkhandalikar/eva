@@ -514,9 +514,11 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
 
             if (sku) {
               let image_url: string | undefined;
+              let unit_price = "";
               if (mcp) {
                 try {
                   const searchResult = await callTool(mcp, "search", { query: sku.name });
+                  const skuLine = searchResult?.split("\n").find((l) => l.includes(`ID: ${sku.id}`));
                   const imgMatch = searchResult?.match(new RegExp(`ID:\\s*${sku.id}[^\\n]*IMG:\\s*(https?:\\/\\/\\S+)`));
                   if (!imgMatch) {
                     // fallback: grab first IMG in results
@@ -525,6 +527,8 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
                   } else {
                     image_url = imgMatch[1];
                   }
+                  const priceMatch = skuLine?.match(/₹[\d,]+/);
+                  if (priceMatch) unit_price = priceMatch[0];
                 } catch {}
               }
               cart.push({
@@ -532,7 +536,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
                 name: sku.name,
                 product_id: sku.id,
                 quantity: item.quantity,
-                unit_price: "",
+                unit_price,
                 url: sku.url,
                 image_url,
               });
