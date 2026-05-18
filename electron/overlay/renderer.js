@@ -224,8 +224,8 @@ ipcRenderer.on('tasks-data', (_, tasks) => {
         openBrowse(tasks);
     }
 });
-// ── Ambient dot — most-urgent non-thought task. Urgency beats recency so a
-// fresh pending task does not mask an older needs_approval / failed one. ──
+// ── Ambient dot — most-recent non-thought task. Always reflects the latest
+// task's current status so the user sees the thing they just queued. ──
 const DONE_MAX_VISIBLE_MS = 1 * 60 * 1000;
 const DONE_STORAGE_KEY = 'ambient:done';
 const AMBIENT_STATUSES = new Set([
@@ -273,7 +273,7 @@ function updateAmbientDot(entries) {
         doneHideTimer = null;
     }
     const tasks = entries.filter(e => !isThought(e));
-    const sorted = sortByUrgency(tasks);
+    const sorted = sortByRecency(tasks);
     const latest = sorted[0];
     if (!latest || !AMBIENT_STATUSES.has(latest.status)) {
         hideAmbientDot();

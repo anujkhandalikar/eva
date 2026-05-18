@@ -96,3 +96,16 @@ input, textarea, button {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
+
+/* Ambient status pulses — mirror electron/overlay/index.html .ambient-dot */
+@keyframes ambientPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+@keyframes ambientPulseFaint {
+  0%, 100% { opacity: 0.95; }
+  50%      { opacity: 0.5; }
+}
+.ambient-pulse-fast  { animation: ambientPulse 1s ease-in-out infinite; }
+.ambient-pulse-mid   { animation: ambientPulse 1.4s ease-in-out infinite; }
+.ambient-pulse-slow  { animation: ambientPulseFaint 2s ease-in-out infinite; }

@@ -12,16 +12,17 @@ const SIZE_CLASS: Record<TileSize, string> = {
   lg: 'col-span-2 row-span-2',
 };
 
+// Border color mirrors electron/overlay/index.html `.ambient-dot` palette.
+// `done` is the silent default — neutral border.
 const DEFAULT_BORDER = 'rgba(255,255,255,0.08)';
-
-const statusBorderColor: Record<string, string | null> = {
+const STATUS_BORDER: Record<string, string | null> = {
+  running: 'rgba(234,179,8,0.6)',
+  needs_approval: 'rgba(249,115,22,0.65)',
+  needs_otp: 'rgba(249,115,22,0.65)',
+  failed: 'rgba(239,68,68,0.6)',
   pending: null,
-  running: 'rgba(255,255,255,0.42)',
-  done: null,
-  needs_approval: 'rgba(234,179,8,0.55)',
-  failed: 'rgba(239,68,68,0.55)',
-  needs_otp: 'rgba(59,130,246,0.55)',
   captured: null,
+  done: null,
 };
 
 function hashId(id: string): number {
@@ -96,13 +97,10 @@ interface TileProps {
 }
 
 function BentoTile({ task, size, onOpen }: TileProps) {
-  const status = task.status;
-  const isRunning = status === 'running';
   const big = size === 'lg' || size === 'wide' || size === 'tall';
   const hasImage = !!task.image_url;
   const isThought = task.entry_type === 'thought';
-  const borderColor = statusBorderColor[status] ?? DEFAULT_BORDER;
-  const borderStyle = isThought ? 'dotted' : 'solid';
+  const borderColor = STATUS_BORDER[task.status] ?? DEFAULT_BORDER;
 
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
@@ -112,10 +110,10 @@ function BentoTile({ task, size, onOpen }: TileProps) {
   return (
     <button
       onClick={onOpen}
-      className={`${SIZE_CLASS[size]} relative rounded-xl overflow-hidden text-left flex flex-col justify-between p-3 transition-transform hover:scale-[1.015] active:scale-[0.99] ${isRunning ? 'animate-pulse' : ''}`}
+      className={`${SIZE_CLASS[size]} relative rounded-xl overflow-hidden text-left flex flex-col justify-between p-3 transition-transform hover:scale-[1.015] active:scale-[0.99]`}
       style={{
         background: hasImage ? '#000' : '#111111',
-        border: `1px ${borderStyle} ${borderColor}`,
+        border: `1px ${isThought ? 'dotted' : 'solid'} ${borderColor}`,
       }}
     >
       {hasImage && task.image_url && (
