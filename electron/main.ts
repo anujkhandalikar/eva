@@ -1,6 +1,19 @@
 import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
+import * as fs from 'fs';
 import * as path from 'path';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
+
+function readSubmitToken(): string | null {
+  try {
+    const envPath = path.resolve(__dirname, '..', '.env.local');
+    const raw = fs.readFileSync(envPath, 'utf8');
+    const match = raw.split('\n').find((l) => l.startsWith('SUBMIT_TOKEN='));
+    return match ? match.slice('SUBMIT_TOKEN='.length).trim() : null;
+  } catch {
+    return null;
+  }
+}
+const SUBMIT_TOKEN = readSubmitToken();
 
 const native: { placeInNotch: (handle: Buffer, w: number, h: number) => void } =
   require('./build/Release/window_native.node');
@@ -204,13 +217,45 @@ app.on('will-quit', () => {
   uIOhook.stop();
 });
 
-ipcMain.on('submit-task', async (event, task) => {
-  console.log('Task captured:', task);
+type SubmitTaskPayload =
+  | string
+  | {
+      input: string;
+      image?: { buffer: ArrayBuffer | Uint8Array; type: string; name: string };
+    };
+
+ipcMain.on('submit-task', async (_event, payload: SubmitTaskPayload) => {
+  console.log('Task captured:', typeof payload === 'string' ? payload : { ...payload, image: payload.image ? `<${payload.image.type}>` : undefined });
   try {
+    const headers: Record<string, string> = {};
+    if (SUBMIT_TOKEN) headers['x-submit-token'] = SUBMIT_TOKEN;
+
+    let body: BodyInit;
+    if (typeof payload === 'object' && payload.image) {
+      const form = new FormData();
+      form.append('input', payload.input ?? '');
+      form.append('force_type', 'thought');
+      const ab =
+        payload.image.buffer instanceof Uint8Array
+          ? (payload.image.buffer.buffer.slice(
+              payload.image.buffer.byteOffset,
+              payload.image.buffer.byteOffset + payload.image.buffer.byteLength,
+            ) as ArrayBuffer)
+          : payload.image.buffer;
+      const blob = new Blob([ab], { type: payload.image.type });
+      form.append('image', blob, payload.image.name);
+      body = form;
+      // Let fetch set multipart boundary automatically.
+    } else {
+      headers['Content-Type'] = 'application/json';
+      const input = typeof payload === 'string' ? payload : payload.input;
+      body = JSON.stringify({ input });
+    }
+
     const response = await fetch('http://localhost:3000/api/tasks', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: task }),
+      headers,
+      body,
     });
     if (!response.ok) console.error('Failed to submit task:', await response.text());
   } catch (error) {

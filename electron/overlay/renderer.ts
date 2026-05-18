@@ -26,6 +26,19 @@ const measureSpan    = document.getElementById('inputMeasure') as HTMLSpanElemen
 const tabTasks       = document.getElementById('tabTasks') as HTMLButtonElement;
 const tabThoughts    = document.getElementById('tabThoughts') as HTMLButtonElement;
 const ambientDot     = document.getElementById('ambientDot') as HTMLDivElement;
+const imageChip      = document.getElementById('imageChip') as HTMLDivElement;
+const imageChipClear = document.getElementById('imageChipClear') as HTMLDivElement;
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+interface PendingImage {
+  buffer: ArrayBuffer;
+  type: string;
+  name: string;
+  previewUrl: string;
+}
+
+let pendingImage: PendingImage | null = null;
 
 const BASE_H        = 68;
 const EXPANDED_H    = 68;
@@ -113,6 +126,81 @@ const placeholders = [
 
 let placeholderIndex = 0;
 
+function showImageChip(image: PendingImage) {
+  pendingImage = image;
+  imageChip.style.backgroundImage = `url("${image.previewUrl}")`;
+  imageChip.classList.add('visible');
+  imageChip.title = image.name;
+  expandInput();
+  updateSize();
+}
+
+function clearImageChip() {
+  if (pendingImage) {
+    URL.revokeObjectURL(pendingImage.previewUrl);
+    pendingImage = null;
+  }
+  imageChip.classList.remove('visible');
+  imageChip.style.backgroundImage = '';
+  imageChip.removeAttribute('title');
+  updateSize();
+}
+
+imageChipClear.addEventListener('click', (e) => {
+  e.stopPropagation();
+  clearImageChip();
+});
+
+async function attachImageBlob(blob: Blob, name: string) {
+  if (!blob.type.startsWith('image/')) return;
+  if (blob.size > MAX_IMAGE_BYTES) {
+    collapseAndConfirm('Image too big');
+    return;
+  }
+  const buffer = await blob.arrayBuffer();
+  const previewBlob = new Blob([buffer], { type: blob.type });
+  const previewUrl = URL.createObjectURL(previewBlob);
+  if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl);
+  showImageChip({ buffer, type: blob.type, name, previewUrl });
+}
+
+// ── Drag-drop image — scoped to .pill so body drag region stays intact ──
+pill.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  pill.classList.add('drag-over');
+});
+
+pill.addEventListener('dragleave', (e) => {
+  if (!pill.contains(e.relatedTarget as Node | null)) {
+    pill.classList.remove('drag-over');
+  }
+});
+
+pill.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  pill.classList.remove('drag-over');
+  const file = e.dataTransfer?.files?.[0];
+  if (file) await attachImageBlob(file, file.name);
+});
+
+// ── Clipboard paste — image becomes chip, text falls through to input ──
+input.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of Array.from(items)) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      e.preventDefault();
+      const blob = item.getAsFile();
+      if (!blob) return;
+      const ext = (blob.type.split('/')[1] ?? 'png').replace(/[^a-z0-9]/gi, '') || 'png';
+      void attachImageBlob(blob, `pasted-${Date.now()}.${ext}`);
+      return;
+    }
+  }
+  // No image in clipboard — let the default paste insert text into input.
+});
+
 // ── Show / hide ──
 ipcRenderer.on('did-show', () => {
   document.body.classList.add('overlay-open');
@@ -121,6 +209,7 @@ ipcRenderer.on('did-show', () => {
   if (textEl) textEl.textContent = 'Captured';
   input.value = '';
   input.classList.remove('has-text');
+  clearImageChip();
 
   placeholderIndex = (placeholderIndex + 1) % placeholders.length;
   input.placeholder = placeholders[placeholderIndex];
@@ -144,6 +233,15 @@ ipcRenderer.on('did-hide', () => {
   document.body.classList.remove('overlay-open');
   input.value = '';
   input.classList.remove('has-text');
+  // Inline state-only reset — calling clearImageChip() would emit set-size IPC
+  // and re-expand the window above ambient height.
+  if (pendingImage) {
+    URL.revokeObjectURL(pendingImage.previewUrl);
+    pendingImage = null;
+  }
+  imageChip.classList.remove('visible');
+  imageChip.style.backgroundImage = '';
+  imageChip.removeAttribute('title');
   pill.classList.remove('drop', 'collapse');
   browseOpen = false;
   pendingBrowseOpen = false;
@@ -581,24 +679,40 @@ function collapseAndConfirm(message: string) {
 // ── Submit ──
 function submit() {
   const raw = input.value.trim();
-  if (!raw) return;
+  const hasImage = pendingImage !== null;
+  if (!raw && !hasImage) return;
 
   input.value = '';
   input.classList.remove('has-text');
 
+  // Commands ignore image attachment.
   const cmd = COMMANDS[raw.toLowerCase()];
   if (cmd) {
+    clearImageChip();
     ipcRenderer.send('clear-tasks', cmd.target);
     return;
   }
 
   if (raw.startsWith('/')) {
+    clearImageChip();
     collapseAndConfirm('Unknown command');
     return;
   }
 
   spawnConfetti();
-  ipcRenderer.send('submit-task', raw);
+  if (hasImage && pendingImage) {
+    ipcRenderer.send('submit-task', {
+      input: raw,
+      image: {
+        buffer: pendingImage.buffer,
+        type: pendingImage.type,
+        name: pendingImage.name,
+      },
+    });
+  } else {
+    ipcRenderer.send('submit-task', raw);
+  }
+  clearImageChip();
 
   if (browseOpen) { browseOpen = false; browseBtn.classList.remove('active'); }
 

@@ -57,6 +57,8 @@ export async function DELETE(req: Request) {
   }
 }
 
+const THOUGHT_BUCKET = 'thought-images';
+
 export async function POST(req: Request) {
   try {
     const submitToken = process.env.SUBMIT_TOKEN;
@@ -67,6 +69,56 @@ export async function POST(req: Request) {
       }
     }
 
+    const contentType = req.headers.get('content-type') ?? '';
+
+    // ── Multipart path — image thought capture ──
+    if (contentType.startsWith('multipart/form-data')) {
+      const form = await req.formData();
+      const rawInput = form.get('input');
+      const input = typeof rawInput === 'string' ? rawInput.trim() : '';
+      const file = form.get('image');
+      const forceType = form.get('force_type');
+
+      if (!(file instanceof File)) {
+        return NextResponse.json({ error: 'image is required for multipart' }, { status: 400 });
+      }
+      if (!file.type.startsWith('image/')) {
+        return NextResponse.json({ error: 'file must be an image' }, { status: 400 });
+      }
+
+      const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const path = `${crypto.randomUUID()}.${ext}`;
+      const arrayBuffer = await file.arrayBuffer();
+
+      const { error: uploadError } = await supabase.storage
+        .from(THOUGHT_BUCKET)
+        .upload(path, arrayBuffer, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from(THOUGHT_BUCKET).getPublicUrl(path);
+      const imageUrl = publicUrlData.publicUrl;
+
+      const row: Record<string, unknown> = {
+        input,
+        status: 'done',
+        requires_approval: false,
+        approved: false,
+        image_url: imageUrl,
+      };
+      if (forceType === 'thought') row.entry_type = 'thought';
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([row])
+        .select()
+        .single();
+      if (error) throw error;
+
+      // No Inngest enqueue — image thoughts are stored only.
+      return NextResponse.json({ task: data });
+    }
+
+    // ── JSON path — existing flow ──
     const { input } = await req.json();
 
     if (!input) {

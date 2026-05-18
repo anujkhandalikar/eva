@@ -87,6 +87,45 @@
     input.has-text { font-weight: 700; }
     input::placeholder { color: rgba(255,255,255,0.22); font-weight: 700; }
 
+    /* ── Image chip — appears when image is attached ── */
+    .image-chip {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+      background-color: rgba(255,255,255,0.05);
+      -webkit-app-region: no-drag;
+      display: none;
+    }
+
+    .image-chip.visible { display: block; }
+
+    .image-chip .clear {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #dc2626;
+      color: white;
+      font-size: 9px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    /* ── Drag overlay ── */
+    .pill.drag-over {
+      box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55);
+    }
+
     /* ── Browse button ── */
     .browse-btn {
       width: 22px;
@@ -399,6 +438,9 @@
   <!-- input panel -->
   <div class="pill" id="pill">
     <div class="input-row">
+      <div class="image-chip" id="imageChip">
+        <div class="clear" id="imageChipClear">×</div>
+      </div>
       <input type="text" id="taskInput" autocomplete="off" spellcheck="false">
       <button class="browse-btn" id="browseBtn" tabindex="-1">
         <svg width="11" height="9" viewBox="0 0 11 9" fill="currentColor">

@@ -111,6 +111,26 @@ export default function ThoughtCard({
         borderLeft: '2px dotted rgba(255,255,255,0.18)',
       }}
     >
+      {task.image_url && (
+        <a
+          href={task.image_url}
+          target="_blank"
+          rel="noreferrer"
+          className="block self-start"
+        >
+          <img
+            src={task.image_url}
+            alt={task.input || 'thought'}
+            className="rounded-lg object-cover"
+            style={{
+              maxHeight: '200px',
+              maxWidth: '100%',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          />
+        </a>
+      )}
+
       {editing ? (
         <textarea
           ref={textareaRef}
@@ -139,14 +159,14 @@ export default function ThoughtCard({
             border: 'none',
           }}
         />
-      ) : (
+      ) : task.input ? (
         <p
           className="text-base leading-snug"
           style={{ color: 'rgba(255,255,255,0.85)', letterSpacing: '-0.01em' }}
         >
           {task.input}
         </p>
-      )}
+      ) : null}
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

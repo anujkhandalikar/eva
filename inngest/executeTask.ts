@@ -27,6 +27,7 @@ export const executeTask = inngest.createFunction(
   {
     id: "execute-task",
     triggers: [{ event: "task/created" }],
+    cancelOn: [{ event: "task/cancelled", if: "event.data.id == async.data.id" }],
     retries: 3,
     concurrency: { limit: 3 },
   },
