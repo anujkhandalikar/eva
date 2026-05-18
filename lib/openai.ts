@@ -85,6 +85,30 @@ export type EntryClassification = {
   confidence: number;
 };
 
+export async function captionImage(imageUrl: string): Promise<string> {
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Caption this image in one short line (under 14 words). Capture the gist — what it shows, key text, who/what is in it. No prefix like 'Image of' or 'This is'. Plain text only.",
+          },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ],
+      },
+    ],
+    max_tokens: 80,
+  });
+
+  const caption = response.choices[0]?.message?.content?.trim() ?? "";
+  return caption.replace(/^["']|["']$/g, "");
+}
+
 export async function classifyEntry(input: string): Promise<EntryClassification> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 

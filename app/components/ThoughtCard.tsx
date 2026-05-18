@@ -166,6 +166,13 @@ export default function ThoughtCard({
         >
           {task.input}
         </p>
+      ) : task.image_url && task.status === 'pending' ? (
+        <p
+          className="text-base leading-snug italic"
+          style={{ color: 'rgba(255,255,255,0.35)', letterSpacing: '-0.01em' }}
+        >
+          Eva is looking at this…
+        </p>
       ) : null}
 
       {tags.length > 0 && (

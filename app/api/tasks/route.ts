@@ -98,9 +98,10 @@ export async function POST(req: Request) {
       const { data: publicUrlData } = supabase.storage.from(THOUGHT_BUCKET).getPublicUrl(path);
       const imageUrl = publicUrlData.publicUrl;
 
+      const needsCaption = input.length === 0;
       const row: Record<string, unknown> = {
         input,
-        status: 'done',
+        status: needsCaption ? 'pending' : 'done',
         requires_approval: false,
         approved: false,
         image_url: imageUrl,
@@ -114,7 +115,13 @@ export async function POST(req: Request) {
         .single();
       if (error) throw error;
 
-      // No Inngest enqueue — image thoughts are stored only.
+      if (needsCaption) {
+        await inngest.send({
+          name: 'thought/image-uploaded',
+          data: { id: data.id, image_url: imageUrl },
+        });
+      }
+
       return NextResponse.json({ task: data });
     }
 
