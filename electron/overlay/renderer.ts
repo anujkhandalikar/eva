@@ -718,6 +718,24 @@ function submit() {
     return;
   }
 
+  // /thot <text> — record thought directly, no AI processing.
+  if (raw.toLowerCase().startsWith('/thot')) {
+    const thoughtText = raw.slice(5).trim();
+    if (!thoughtText) {
+      collapseAndConfirm('Empty thought');
+      return;
+    }
+    clearImageChip();
+    spawnConfetti();
+    ipcRenderer.send('submit-task', { input: thoughtText, isThought: true });
+    if (browseOpen) { browseOpen = false; browseBtn.classList.remove('active'); }
+    pill.classList.remove('drop');
+    void pill.offsetHeight;
+    pill.classList.add('collapse');
+    setTimeout(() => ipcRenderer.send('contract-to-notch'), 110);
+    return;
+  }
+
   if (raw.startsWith('/')) {
     clearImageChip();
     collapseAndConfirm('Unknown command');

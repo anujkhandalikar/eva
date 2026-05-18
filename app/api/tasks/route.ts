@@ -126,20 +126,23 @@ export async function POST(req: Request) {
     }
 
     // ── JSON path — existing flow ──
-    const { input } = await req.json();
+    const { input, entry_type } = await req.json();
 
     if (!input) {
       return NextResponse.json({ error: 'Input is required' }, { status: 400 });
     }
+
+    const isThought = entry_type === 'thought';
 
     const { data, error } = await supabase
       .from('tasks')
       .insert([
         {
           input,
-          status: 'pending',
+          status: isThought ? 'done' : 'pending',
           requires_approval: false,
           approved: false,
+          ...(isThought ? { entry_type: 'thought' } : {}),
         }
       ])
       .select()
@@ -147,13 +150,15 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
-    await inngest.send({
-      name: 'task/created',
-      data: {
-        id: data.id,
-        input: data.input,
-      },
-    });
+    if (!isThought) {
+      await inngest.send({
+        name: 'task/created',
+        data: {
+          id: data.id,
+          input: data.input,
+        },
+      });
+    }
 
     return NextResponse.json({ task: data });
   } catch (error: any) {

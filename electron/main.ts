@@ -233,6 +233,7 @@ type SubmitTaskPayload =
   | string
   | {
       input: string;
+      isThought?: boolean;
       image?: { buffer: ArrayBuffer | Uint8Array; type: string; name: string };
     };
 
@@ -261,7 +262,8 @@ ipcMain.on('submit-task', async (_event, payload: SubmitTaskPayload) => {
     } else {
       headers['Content-Type'] = 'application/json';
       const input = typeof payload === 'string' ? payload : payload.input;
-      body = JSON.stringify({ input });
+      const isThought = typeof payload === 'object' && payload.isThought === true;
+      body = JSON.stringify({ input, ...(isThought ? { entry_type: 'thought' } : {}) });
     }
 
     const response = await fetch('http://localhost:3000/api/tasks', {
