@@ -164,7 +164,10 @@ export function resolveRecipient(query: string): ResolvedRecipient | null {
       console.log(`[whatsapp] alias "${query}" → "${alias.realName}" (${alias.isGroup ? 'group' : 'contact'}) → ${hit.jid}`);
       return { jid: hit.jid, name: hit.name, alias: query.trim() };
     }
-    console.warn(`[whatsapp] alias "${query}" maps to "${alias.realName}" but no chat found — falling back to search`);
+    // Alias is defined but no matching chat found — do NOT fall back to generic
+    // search, as that would match unrelated contacts/groups containing the same
+    // substring (e.g. alias "chai" → no 1:1 "Chai" chat → "GrabChai" group).
+    throw new Error(`Alias "${query}" maps to "${alias.realName}" but no ${alias.isGroup ? 'group' : 'contact'} with that name was found in WhatsApp. Check that you have a chat with "${alias.realName}" or update the alias in lib/aliases.ts.`);
   }
   const contacts = searchContacts(query);
   if (contacts.length === 0) return null;
