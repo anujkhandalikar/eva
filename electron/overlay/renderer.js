@@ -173,11 +173,19 @@ ipcRenderer.on('did-show', () => {
     const textEl = notchConfirm.querySelector('.text');
     if (textEl)
         textEl.textContent = 'Captured';
-    input.value = '';
-    input.classList.remove('has-text');
-    clearImageChip();
-    placeholderIndex = (placeholderIndex + 1) % placeholders.length;
-    input.placeholder = placeholders[placeholderIndex];
+    // Preserve text + image across hover-close. Only re-rotate placeholder when
+    // there's no draft to show.
+    const hasDraft = input.value.length > 0 || pendingImage !== null;
+    if (!hasDraft) {
+        placeholderIndex = (placeholderIndex + 1) % placeholders.length;
+        input.placeholder = placeholders[placeholderIndex];
+    }
+    else {
+        input.classList.toggle('has-text', input.value.length > 0);
+        expandInput();
+        // Re-emit size so main grows the window past the default open dims.
+        updateSize();
+    }
     pill.classList.remove('drop', 'collapse');
     void pill.offsetHeight;
     pill.classList.add('drop');
@@ -191,25 +199,12 @@ ipcRenderer.on('did-show', () => {
 });
 ipcRenderer.on('did-hide', () => {
     document.body.classList.remove('overlay-open');
-    input.value = '';
-    input.classList.remove('has-text');
-    // Inline state-only reset — calling clearImageChip() would emit set-size IPC
-    // and re-expand the window above ambient height.
-    if (pendingImage) {
-        URL.revokeObjectURL(pendingImage.previewUrl);
-        pendingImage = null;
-    }
-    imageChip.classList.remove('visible');
-    imageChip.style.backgroundImage = '';
-    imageChip.removeAttribute('title');
+    // State is preserved across hover-close. Text + pending image survive so the
+    // user picks up where they left off on re-hover. Only ephemeral UI bits reset.
     pill.classList.remove('drop', 'collapse');
     browseOpen = false;
     pendingBrowseOpen = false;
     browseBtn.classList.remove('active');
-    // Reset internal state only. Main process owns window size now (collapses
-    // to ambient on its own). Don't send set-size IPC — would re-expand window.
-    inputExpanded = false;
-    pill.classList.remove('expanded');
 });
 // notch-height IPC kept for future use; dot now positions via CSS centering.
 // ── Notch confirm ──
@@ -521,6 +516,16 @@ function dismiss() {
         closeBrowse();
         return;
     }
+    // Esc abandons the draft. Wipe text + image so re-hover starts fresh.
+    input.value = '';
+    input.classList.remove('has-text');
+    if (pendingImage) {
+        URL.revokeObjectURL(pendingImage.previewUrl);
+        pendingImage = null;
+    }
+    imageChip.classList.remove('visible');
+    imageChip.style.backgroundImage = '';
+    imageChip.removeAttribute('title');
     resetSize();
     pill.classList.remove('drop');
     void pill.offsetHeight;
