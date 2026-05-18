@@ -23,7 +23,7 @@
        and the input row is revealed. No scaleY animation — window-resize
        animation in main process drives the drop/collapse feel. ── */
     .pill {
-      width: 300px;
+      width: calc(100% - 24px);
       margin: 0 auto;
       background: #000000;
       -webkit-backdrop-filter: none;
@@ -370,8 +370,9 @@
 
     /* ── Notch confirmation — shows after collapse ── */
     .notch-confirm {
-      position: fixed;
-      inset: 0;
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 12px; right: 12px;
       background: #000000;
       /* Only round the bottom corners — top corners must stay square so the
          body::before/after outward-turning corner pseudo-elements are not covered. */
@@ -440,7 +441,7 @@
     .ambient-dot {
       position: fixed;
       top: 7px;
-      right: 30px;
+      left: calc(50% + 132px);
       width: 7px;
       height: 7px;
       border-radius: 50%;

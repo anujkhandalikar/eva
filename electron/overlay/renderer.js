@@ -22,6 +22,7 @@ const EXPANDED_H = 68;
 const BASE_W = 300;
 const EXPANDED_W = 480;
 const MAX_W = 900;
+const WING_W = 24; // 12px outward corner on each side
 const INPUT_OVERHEAD = 112; // left-pad + right-pad + gap + buttons + buffer
 const ROW_H = 30;
 const TAB_BAR_H = 34; // tabs row padding + content
@@ -39,7 +40,7 @@ function currentWidth() {
     return Math.min(Math.max(floor, textW + INPUT_OVERHEAD), MAX_W);
 }
 function updateSize() {
-    ipcRenderer.send('set-size', { w: currentWidth(), h: inputHeight() });
+    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: inputHeight() });
 }
 function expandInput() {
     if (inputExpanded)
@@ -50,7 +51,7 @@ function expandInput() {
 function resetSize() {
     inputExpanded = false;
     pill.classList.remove('expanded');
-    ipcRenderer.send('set-size', { w: BASE_W, h: BASE_H });
+    ipcRenderer.send('set-size', { w: BASE_W + WING_W, h: BASE_H });
 }
 let browseOpen = false;
 let pendingBrowseOpen = false;
@@ -459,7 +460,7 @@ function openBrowse(entries) {
     browseBtn.classList.add('active');
     storedTasks = entries;
     const visibleRows = renderActiveTab();
-    ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
+    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
 }
 tabTasks.addEventListener('click', () => {
     if (activeTab === 'tasks')
@@ -467,7 +468,7 @@ tabTasks.addEventListener('click', () => {
     activeTab = 'tasks';
     if (browseOpen) {
         const visibleRows = renderActiveTab();
-        ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
+        ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
     }
 });
 tabThoughts.addEventListener('click', () => {
@@ -476,13 +477,13 @@ tabThoughts.addEventListener('click', () => {
     activeTab = 'thoughts';
     if (browseOpen) {
         const visibleRows = renderActiveTab();
-        ipcRenderer.send('set-size', { w: currentWidth(), h: browseHeight(visibleRows) });
+        ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
     }
 });
 function closeBrowse() {
     browseOpen = false;
     browseBtn.classList.remove('active');
-    ipcRenderer.send('set-size', { w: currentWidth(), h: inputHeight() });
+    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: inputHeight() });
 }
 // ── Screenshot button ──
 screenshotBtn.addEventListener('click', async () => {
