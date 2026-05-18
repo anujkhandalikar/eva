@@ -12,14 +12,16 @@ const SIZE_CLASS: Record<TileSize, string> = {
   lg: 'col-span-2 row-span-2',
 };
 
-const statusDotColor: Record<string, string> = {
-  pending: 'rgba(255,255,255,0.25)',
-  running: 'rgba(255,255,255,0.55)',
-  done: '#22c55e',
-  needs_approval: '#eab308',
-  failed: '#ef4444',
-  needs_otp: '#3b82f6',
-  captured: 'rgba(255,255,255,0.25)',
+const DEFAULT_BORDER = 'rgba(255,255,255,0.08)';
+
+const statusBorderColor: Record<string, string | null> = {
+  pending: null,
+  running: 'rgba(255,255,255,0.42)',
+  done: null,
+  needs_approval: 'rgba(234,179,8,0.55)',
+  failed: 'rgba(239,68,68,0.55)',
+  needs_otp: 'rgba(59,130,246,0.55)',
+  captured: null,
 };
 
 function hashId(id: string): number {
@@ -95,10 +97,12 @@ interface TileProps {
 
 function BentoTile({ task, size, onOpen }: TileProps) {
   const status = task.status;
-  const dot = statusDotColor[status] ?? statusDotColor.pending;
   const isRunning = status === 'running';
   const big = size === 'lg' || size === 'wide' || size === 'tall';
   const hasImage = !!task.image_url;
+  const isThought = task.entry_type === 'thought';
+  const borderColor = statusBorderColor[status] ?? DEFAULT_BORDER;
+  const borderStyle = isThought ? 'dotted' : 'solid';
 
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
@@ -108,10 +112,10 @@ function BentoTile({ task, size, onOpen }: TileProps) {
   return (
     <button
       onClick={onOpen}
-      className={`${SIZE_CLASS[size]} relative rounded-xl overflow-hidden text-left flex flex-col justify-between p-3 transition-transform hover:scale-[1.015] active:scale-[0.99]`}
+      className={`${SIZE_CLASS[size]} relative rounded-xl overflow-hidden text-left flex flex-col justify-between p-3 transition-transform hover:scale-[1.015] active:scale-[0.99] ${isRunning ? 'animate-pulse' : ''}`}
       style={{
         background: hasImage ? '#000' : '#111111',
-        border: '1px solid rgba(255,255,255,0.08)',
+        border: `1px ${borderStyle} ${borderColor}`,
       }}
     >
       {hasImage && task.image_url && (
@@ -131,11 +135,7 @@ function BentoTile({ task, size, onOpen }: TileProps) {
         </>
       )}
 
-      <div className="relative flex items-start justify-between gap-2">
-        <div
-          className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1 ${isRunning ? 'animate-pulse' : ''}`}
-          style={{ background: dot }}
-        />
+      <div className="relative flex items-start justify-end gap-2">
         <span
           className="eva-meta shrink-0"
           style={{ color: hasImage ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.28)' }}
