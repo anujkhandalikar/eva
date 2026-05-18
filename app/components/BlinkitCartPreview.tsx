@@ -43,7 +43,7 @@ export default function BlinkitCartPreview({ cart, taskId }: BlinkitCartPreviewP
   const missingItems = cart.filter((i) => i.not_found);
 
   const total = foundItems.reduce((sum, item) => {
-    const price = parseInt(item.unit_price.replace(/[^\d]/g, ''), 10) || 0;
+    const price = parseInt((item.unit_price ?? '').replace(/[^\d]/g, ''), 10) || 0;
     return sum + price * item.quantity;
   }, 0);
 
@@ -82,54 +82,54 @@ export default function BlinkitCartPreview({ cart, taskId }: BlinkitCartPreviewP
       {/* Item list */}
       <div className="flex flex-col gap-1.5">
         {foundItems.map((item, i) => (
-          <div key={i} className="flex justify-between items-center text-sm">
-            <span style={{ color: 'rgba(255,255,255,0.75)' }}>
+          <div key={i} className="flex justify-between items-center eva-body">
+            <span style={{ color: 'rgba(255,255,255,0.78)' }}>
               {item.url ? (
                 <a
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="underline underline-offset-2"
-                  style={{ color: 'rgba(255,255,255,0.75)' }}
+                  style={{ color: 'rgba(255,255,255,0.78)' }}
                 >
                   {item.name}
                 </a>
               ) : (
                 item.name
               )}
-              <span className="ml-1" style={{ color: 'rgba(255,255,255,0.35)' }}>×{item.quantity}</span>
+              <span className="ml-1 eva-num" style={{ color: 'rgba(255,255,255,0.38)' }}>×{item.quantity}</span>
             </span>
-            <span className="tabular-nums" style={{ color: 'rgba(255,255,255,0.45)' }}>{item.unit_price}</span>
+            <span className="eva-num" style={{ color: 'rgba(255,255,255,0.48)', fontWeight: 500 }}>{item.unit_price}</span>
           </div>
         ))}
         {missingItems.map((item, i) => (
-          <div key={i} className="flex justify-between items-center text-sm">
+          <div key={i} className="flex justify-between items-center eva-body">
             <span className="line-through" style={{ color: '#ef4444' }}>{item.requested}</span>
-            <span className="text-xs" style={{ color: '#ef4444' }}>not found</span>
+            <span className="eva-micro" style={{ color: '#ef4444' }}>not found</span>
           </div>
         ))}
       </div>
 
       {total > 0 && (
         <div
-          className="flex justify-between items-center text-sm font-semibold pt-2"
+          className="flex justify-between items-center pt-2"
           style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
         >
-          <span style={{ color: 'rgba(255,255,255,0.45)' }}>Estimated total</span>
-          <span style={{ color: 'rgba(255,255,255,0.9)' }}>₹{total}</span>
+          <span className="eva-tab" style={{ color: 'rgba(255,255,255,0.48)' }}>Estimated total</span>
+          <span className="eva-num" style={{ color: 'rgba(255,255,255,0.92)', fontSize: 14, fontWeight: 700 }}>₹{total}</span>
         </div>
       )}
 
       {error && (
-        <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>
+        <p className="eva-micro" style={{ color: '#ef4444' }}>{error}</p>
       )}
 
       {foundItems.length > 0 && (
         <button
           onClick={handleApprove}
           disabled={loading}
-          className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-50"
-          style={{ background: '#dc2626', color: '#fff' }}
+          className="w-full py-2.5 rounded-xl eva-tab transition-opacity disabled:opacity-50"
+          style={{ background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600 }}
         >
           {loading ? 'Placing order…' : 'Place Order'}
         </button>

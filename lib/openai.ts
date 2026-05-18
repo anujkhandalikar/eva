@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { EVA_CONTEXT, isAboutEva } from "./evaContext";
 
 const apiKey = process.env.OPENAI_API_KEY;
 
@@ -41,11 +42,23 @@ export type CalendarDeleteAction = {
   eventSummary: string;
 };
 
+export type CalendarTaskCreateAction = {
+  type: "task_create";
+  title: string;
+  dueDate?: string;
+};
+
+export type CalendarTaskListAction = {
+  type: "task_list";
+};
+
 export type CalendarAction =
   | CalendarListAction
   | CalendarCreateAction
   | CalendarUpdateAction
-  | CalendarDeleteAction;
+  | CalendarDeleteAction
+  | CalendarTaskCreateAction
+  | CalendarTaskListAction;
 
 export type WhatsAppSendIntent = {
   type: "whatsapp_send";
@@ -79,11 +92,47 @@ export const THOUGHT_TAGS = [
 
 export type ThoughtTag = (typeof THOUGHT_TAGS)[number];
 
+export const TASK_CATEGORIES = [
+  "research",
+  "action",
+  "personal",
+  "work",
+  "learning",
+  "other",
+] as const;
+
+export type TaskCategory = (typeof TASK_CATEGORIES)[number];
+
 export type EntryClassification = {
   entry_type: "thought" | "task";
   tags: ThoughtTag[];
+  category: TaskCategory | null;
   confidence: number;
 };
+
+export async function captionImage(imageUrl: string): Promise<string> {
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Caption this image in one short line (under 14 words). Capture the gist — what it shows, key text, who/what is in it. No prefix like 'Image of' or 'This is'. Plain text only.",
+          },
+          { type: "image_url", image_url: { url: imageUrl } },
+        ],
+      },
+    ],
+    max_tokens: 80,
+  });
+
+  const caption = response.choices[0]?.message?.content?.trim() ?? "";
+  return caption.replace(/^["']|["']$/g, "");
+}
 
 export async function classifyEntry(input: string): Promise<EntryClassification> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
@@ -103,7 +152,9 @@ TASK = an imperative command for Eva to research, order, schedule, send, look up
 Disambiguation rules:
 - Imperative verb at the start (find, book, send, order, schedule, list, summarize, check, what is, what did, look up, text, message, msg, dm, ping, whatsapp, wa, tell, reply, email, call) → task
 - Messaging intent ("text X on group Y", "send X to Y", "message Y saying X", "dm Y", "ping Y", "tell Y to ...") → task, even if the message body sounds casual ("goodnight", "thanks", "ok"). The casual word is the payload, not a thought.
-- Declarative, past tense, or self-directed ("I should", "remember", "remind me", "X is broken", "wonder if") → thought
+- Explicit to-do markers ("todo:", "task:", "add task", "add to my list", "to-do", "what's on my list", "show my todos") → task. Eva tracks these in the user's task list.
+- Declarative, past tense, or self-directed ("I should", "remember", "X is broken", "wonder if") → thought
+- "remind me to X" without an explicit time → task (goes to the user's task list). With a specific time ("remind me at 3pm") → task (scheduled calendar event).
 - When genuinely ambiguous, prefer "thought" — the user can promote it later. Avoid false-positive task execution.
 
 If thought, assign 0–3 tags from this exact fixed vocabulary (no other tags allowed):
@@ -111,10 +162,20 @@ product, personal, idea, followup, gripe, person, decision, question, reference
 
 If task, return tags as an empty array.
 
+If task, ALSO assign a category from this fixed vocabulary:
+- research: look-ups, summaries, web research, comparisons, recommendations
+- action: bookings, orders, sends, messages, calendar create/update/delete
+- personal: health, family, home, life-logistics tasks ("call mom", "renew passport")
+- work: project, code, professional ("ship feature X", "review PR", "summarize standup")
+- learning: study, explore-a-concept, idea-development ("explain CRDT", "how does X work")
+- other: doesn't fit any of the above
+
+If thought, set category to null.
+
 Confidence is your own 0..1 estimate of how sure you are about entry_type.
 
 Output ONLY valid JSON:
-{"entry_type":"thought"|"task","tags":[...],"confidence":0..1}
+{"entry_type":"thought"|"task","tags":[...],"category":"research"|"action"|"personal"|"work"|"learning"|"other"|null,"confidence":0..1}
 
 Examples:
 "find best ANC headphones under $300" → {"entry_type":"task","tags":[],"confidence":0.95}
@@ -138,6 +199,7 @@ Examples:
     const parsed = JSON.parse(text) as {
       entry_type?: string;
       tags?: unknown;
+      category?: unknown;
       confidence?: unknown;
     };
 
@@ -152,6 +214,15 @@ Examples:
       )
       .slice(0, 3);
 
+    const category: TaskCategory | null =
+      entry_type === "task" &&
+      typeof parsed.category === "string" &&
+      (TASK_CATEGORIES as readonly string[]).includes(parsed.category)
+        ? (parsed.category as TaskCategory)
+        : entry_type === "task"
+          ? "other"
+          : null;
+
     const confidence =
       typeof parsed.confidence === "number" &&
       parsed.confidence >= 0 &&
@@ -162,11 +233,53 @@ Examples:
     return {
       entry_type,
       tags: entry_type === "task" ? [] : tags,
+      category,
       confidence,
     };
   } catch {
-    return { entry_type: "task", tags: [], confidence: 0 };
+    return { entry_type: "task", tags: [], category: "other", confidence: 0 };
   }
+}
+
+export async function classifyCategory(input: string): Promise<TaskCategory> {
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const response = await client.chat.completions.create({
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content: `Classify a task into ONE category. Output JSON: {"category":"<name>"}.
+
+Categories:
+- research: look-ups, summaries, web research, comparisons, recommendations ("find best ANC headphones", "what did cursor ship", "compare A vs B")
+- action: bookings, orders, sends, messages, calendar create/update/delete ("book table", "order milk", "text mom", "schedule meeting")
+- personal: health, family, home, life-logistics ("call mom", "renew passport", "doctor appointment")
+- work: project, code, professional ("ship feature X", "review PR", "summarize standup")
+- learning: study, explore-a-concept, idea-development ("explain CRDT", "how does X work", "teach me Y")
+- other: doesn't fit any of the above
+
+Tie-breakers:
+- "personal" beats "action" when the task is primarily about someone in the user's life (call/text mom → personal, not action).
+- "research" beats "learning" for one-off look-ups; "learning" wins when user wants conceptual understanding.
+- Default ambiguous → other.`,
+      },
+      { role: "user", content: input },
+    ],
+  });
+
+  const text = response.choices[0]?.message?.content ?? "";
+  try {
+    const parsed = JSON.parse(text) as { category?: string };
+    if (
+      typeof parsed.category === "string" &&
+      (TASK_CATEGORIES as readonly string[]).includes(parsed.category)
+    ) {
+      return parsed.category as TaskCategory;
+    }
+  } catch {}
+  return "other";
 }
 
 export async function detectIntent(input: string): Promise<TaskIntent> {
@@ -198,6 +311,14 @@ For CALENDAR UPDATE (rescheduling/editing an existing event), respond:
 For CALENDAR DELETE (cancelling/removing), respond:
 {"type":"calendar","action":{"type":"delete","eventId":"","eventSummary":"name of event to delete"}}
 
+TASK requests (Google Tasks — all-day todo). Trigger ONLY when the input STARTS with an explicit todo prefix: "todo", "todo:", "todo ", "task:", "add task", "add to my list", "to-do". No prefix → NEVER task_create. Even reminders without an explicit time go to calendar CREATE (not task_create).
+
+For TASK CREATE, respond:
+{"type":"calendar","action":{"type":"task_create","title":"task text (strip the todo prefix)","dueDate":"YYYY-MM-DD or omit for today"}}
+
+For TASK LIST ("what's on my list", "show my todos", "open tasks", "what do I need to do"):
+{"type":"calendar","action":{"type":"task_list"}}
+
 BLINKIT ORDER requests: order, buy, or get grocery/food/household items delivered.
 {"type":"blinkit_order","items":[{"name":"item name","quantity":1}]}
 
@@ -210,14 +331,28 @@ WHATSAPP READ requests: check WhatsApp messages, see what someone said, read a c
 Everything else:
 {"type":"research"}
 
+Routing default (no prefix, no explicit time): personal action items naming a specific person or concrete action ("call venkat", "pay rent", "pick up package", "drop laundry", "remind me to renew passport") → CALENDAR CREATE with default time (today's next round hour, 1hr). Research lookups ("find best X", "what is Y", "compare A vs B", "summarize Z") → research.
+
 Rules:
 - For calendar times, use full ISO 8601 format with timezone offset (e.g. 2026-05-14T14:00:00+05:30)
 - "tomorrow" means the next calendar day from current time
 - Default event duration: 1 hour if not specified
+- For calendar CREATE with no explicit time given ("remind me to call dad", "call venkat later"), still create the event — set startTime to today's next round hour (current hour + 1, minute 00), endTime +1 hour
 - For update/delete, set eventId to "" — Eva will search for the event by eventSummary at execution time
+- For task_create, dueDate is YYYY-MM-DD (Asia/Kolkata). Omit to default to today.
 - For blinkit: quantity defaults to 1 if not specified
 - For whatsapp_send: message_body should be the natural message text, not a meta-description
-- Only respond with valid JSON, no other text`,
+- Only respond with valid JSON, no other text
+
+Examples:
+"remind me to call venkat at 6pm today" → {"type":"calendar","action":{"type":"create","summary":"call venkat","startTime":"<today>T18:00:00+05:30","endTime":"<today>T19:00:00+05:30"}}
+"call dad at 3pm tomorrow" → calendar create
+"meeting with anuj friday 11am" → calendar create
+"remind me to renew passport" → calendar create (default to next round hour today)
+"todo: buy milk" → task_create, title "buy milk"
+"todo buy milk" → task_create, title "buy milk"
+"add task pay rent" → task_create
+"what's on my list" → task_list`,
       },
       { role: "user", content: input },
     ],
@@ -320,10 +455,10 @@ SEARCH:
 - Products/companies: find the most recent announcement, not the homepage blurb.
 - If multiple people share a name, pick the most contextually relevant one and flag the ambiguity in bullet 1.
 
-OUTPUT — exactly 3 bullets:
-- VERDICT: a specific claim. Overhyped? Niche? Stalled? Genuinely useful? Don't describe — judge.
-- SHARPEST FACT: one concrete data point — number, date, round size, ship, outcome. If you can't name it, search more.
-- THE CATCH: what most people miss — a limitation, contradiction, recent setback, reframing.
+OUTPUT — exactly 3 bullets, no labels or prefixes:
+- A specific claim. Overhyped? Niche? Stalled? Genuinely useful? Don't describe — judge.
+- One concrete data point — number, date, round size, ship, outcome. If you can't name it, search more.
+- What most people miss — a limitation, contradiction, recent setback, reframing.
 
 ${LINK_RULE_ONE}
 
@@ -380,8 +515,10 @@ ${NO_HEDGING}${tail}`;
       return `You are EVA. Explain the concept or how-to clearly and tightly. Search the web if the topic is technical or recent enough that you'd risk staleness.
 
 OUTPUT — choose the shape that fits:
-- For a concept: 3 bullets — WHAT IT IS (one sentence), HOW IT WORKS (one sentence on the mechanism), WHY IT MATTERS (one sentence on the practical consequence).
+- For a concept: 3 bullets. Internally use the frame WHAT IT IS / HOW IT WORKS / WHY IT MATTERS to shape each bullet, but DO NOT include those labels in the output. Output only the three plain sentences, one per bullet.
 - For a how-to: numbered steps (3–6), each ≤ 1 short sentence, imperative voice.
+
+NEVER use markdown bold (**), italics (*), or label prefixes like "WHAT IT IS:" in output. Plain prose only.
 
 ${LINK_RULE_ONE}
 
@@ -421,7 +558,20 @@ export async function processTask(input: string): Promise<TaskResult> {
   const subtype = await classifyResearchSubtype(input);
   console.log(`[research-subtype] "${input}" → ${subtype}`);
 
-  const prompt = promptForSubtype(subtype, input);
+  const basePrompt = promptForSubtype(subtype, input);
+  const selfReferential = isAboutEva(input);
+  if (selfReferential) console.log(`[eva-self] "${input}" → injecting self-context`);
+
+  const prompt = selfReferential
+    ? `ABOUT EVA (the product the user is asking about):
+${EVA_CONTEXT}
+
+The user is asking about Eva itself — this is brainstorming about Eva's own roadmap, features, or design. Use the context above so your verdict reflects what Eva currently is, does, and lacks. Web research is still useful for anything external the question references (e.g. researching an MCP, comparing to other tools).
+
+---
+
+${basePrompt}`
+    : basePrompt;
 
   const response = await client.responses.create({
     model: "gpt-4o",

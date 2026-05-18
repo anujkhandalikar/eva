@@ -6,6 +6,7 @@ import TaskCard, { Task } from '@/app/components/TaskCard';
 import ThoughtCard from '@/app/components/ThoughtCard';
 import ViewToggle, { ViewMode } from '@/app/components/ViewToggle';
 import CardStack from '@/app/components/CardStack';
+import BentoView from '@/app/components/BentoView';
 import FilterBar, { EntryFilter } from '@/app/components/FilterBar';
 import AddEntrySheet, { type AddEntrySheetHandle } from '@/app/components/AddEntrySheet';
 
@@ -16,6 +17,15 @@ function readEntryHash(): string | null {
   return decodeURIComponent(hash.slice('#entry-'.length));
 }
 
+function readViewHash(): ViewMode | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash;
+  if (!hash.startsWith('#view=')) return null;
+  const value = hash.slice('#view='.length);
+  if (value === 'cards' || value === 'bento' || value === 'list') return value;
+  return null;
+}
+
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +34,7 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [pinTaskId, setPinTaskId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetRef = useRef<AddEntrySheetHandle>(null);
 
@@ -84,7 +95,12 @@ export default function Dashboard() {
   // Kept as an effect (not lazy state init) so SSR and first client render
   // agree on `view='cards'` — flipping happens post-mount.
   useEffect(() => {
-    if (readEntryHash()) setView('list');
+    if (readEntryHash()) {
+      setView('list');
+      return;
+    }
+    const v = readViewHash();
+    if (v) setView(v);
   }, []);
 
   useEffect(() => {
@@ -102,13 +118,17 @@ export default function Dashboard() {
   useEffect(() => {
     function onHashChange() {
       const id = readEntryHash();
-      if (!id) return;
-      setView('list');
-      const el = document.getElementById(`entry-${id}`);
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setHighlightedId(id);
-      setTimeout(() => setHighlightedId(null), 2200);
+      if (id) {
+        setView('list');
+        const el = document.getElementById(`entry-${id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedId(id);
+        setTimeout(() => setHighlightedId(null), 2200);
+        return;
+      }
+      const v = readViewHash();
+      if (v) setView(v);
     }
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -148,30 +168,34 @@ export default function Dashboard() {
 
       <div className="max-w-3xl w-full mx-auto flex flex-col h-full">
 
-        <div className="py-5 flex items-center justify-end shrink-0">
+        <div
+          className={`py-5 flex items-center justify-end shrink-0 ${
+            view === 'cards' ? 'sm:pr-[calc(2.75rem+1rem)]' : ''
+          }`}
+        >
           <ViewToggle view={view} onChange={setView} />
         </div>
 
         <div className="flex-1 overflow-hidden pb-4">
           {loading ? (
-            <div className="text-sm animate-pulse" style={{ color: 'rgba(255,255,255,0.22)' }}>
+            <div className="eva-body animate-pulse" style={{ color: 'rgba(255,255,255,0.24)' }}>
               Loading tasks...
             </div>
           ) : tasks.length === 0 ? (
             <div
-              className="text-center p-8 rounded-xl mt-12"
+              className="text-center p-8 rounded-xl mt-12 eva-body"
               style={{
-                color: 'rgba(255,255,255,0.22)',
+                color: 'rgba(255,255,255,0.24)',
                 border: '1px solid rgba(255,255,255,0.07)',
               }}
             >
               No tasks yet. Double tap{' '}
               <kbd
-                className="px-2 py-1 rounded mx-1 text-xs"
+                className="px-2 py-1 rounded mx-1 eva-tag"
                 style={{
                   background: 'rgba(255,255,255,0.06)',
                   border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.5)',
+                  color: 'rgba(255,255,255,0.55)',
                 }}
               >
                 Control
@@ -180,8 +204,17 @@ export default function Dashboard() {
             </div>
           ) : view === 'cards' ? (
             <CardStack
-              tasks={tasks.filter((t) => t.entry_type !== 'thought')}
+              tasks={tasks}
               onDeleteTask={handleDeleteTask}
+              pinTaskId={pinTaskId}
+            />
+          ) : view === 'bento' ? (
+            <BentoView
+              tasks={tasks}
+              onOpen={(id) => {
+                setPinTaskId(id);
+                setView('cards');
+              }}
             />
           ) : (
             <StreamView
@@ -273,18 +306,18 @@ function StreamView({
       />
 
       <div
-        className="text-xs font-medium mb-6 flex items-center justify-between uppercase tracking-widest"
-        style={{ color: 'rgba(255,255,255,0.18)' }}
+        className="eva-eyebrow mb-6 flex items-center justify-between"
+        style={{ color: 'rgba(255,255,255,0.22)' }}
       >
         <span>Stream</span>
-        <span>{filtered.length}</span>
+        <span className="eva-num">{filtered.length}</span>
       </div>
 
       {filtered.length === 0 ? (
         <div
-          className="text-center p-8 rounded-xl"
+          className="text-center p-8 rounded-xl eva-body"
           style={{
-            color: 'rgba(255,255,255,0.22)',
+            color: 'rgba(255,255,255,0.24)',
             border: '1px solid rgba(255,255,255,0.07)',
           }}
         >

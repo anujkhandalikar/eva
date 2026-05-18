@@ -1,9 +1,9 @@
 import { inngest } from "./client";
 import { supabase } from "@/lib/supabase";
-import { classifyEntry, detectIntent, processTask } from "@/lib/openai";
+import { classifyEntry, classifyCategory, detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
-import { listEvents, createEvent } from "@/lib/googleCalendar";
+import { listEvents, createEvent, createTask, listTasks } from "@/lib/googleCalendar";
 import { searchContacts, getLastMessage, listRecentMessages, resolveRecipient } from "@/lib/whatsapp";
 
 function formatEventList(events: Awaited<ReturnType<typeof listEvents>>): string {
@@ -27,6 +27,7 @@ export const executeTask = inngest.createFunction(
   {
     id: "execute-task",
     triggers: [{ event: "task/created" }],
+    cancelOn: [{ event: "task/cancelled", if: "event.data.id == async.data.id" }],
     retries: 3,
     concurrency: { limit: 3 },
   },
@@ -38,13 +39,29 @@ export const executeTask = inngest.createFunction(
     const classification = await step.run("classify-entry", async () => {
       const { data: row, error: fetchErr } = await supabase
         .from("tasks")
-        .select("entry_type")
+        .select("entry_type, category")
         .eq("id", id)
         .single();
       if (fetchErr) throw fetchErr;
 
       if (row.entry_type === "task") {
-        return { entry_type: "task" as const, tags: [] as string[], confidence: 1 };
+        // Promoted task — entry_type already settled. Category may be missing
+        // (older row, or thought→task promotion). Backfill it here.
+        let category = row.category as string | null;
+        if (!category) {
+          category = await classifyCategory(input);
+          const { error } = await supabase
+            .from("tasks")
+            .update({ category })
+            .eq("id", id);
+          if (error) throw error;
+        }
+        return {
+          entry_type: "task" as const,
+          tags: [] as string[],
+          category,
+          confidence: 1,
+        };
       }
 
       const result = await classifyEntry(input);
@@ -54,6 +71,7 @@ export const executeTask = inngest.createFunction(
         .update({
           entry_type: result.entry_type,
           tags: result.tags,
+          category: result.category,
           classification_confidence: result.confidence,
         })
         .eq("id", id);
@@ -112,6 +130,63 @@ export const executeTask = inngest.createFunction(
 
           await step.run("update-status-done-calendar", async () => {
             const summary = formatEventList(events);
+            const { error } = await supabase
+              .from("tasks")
+              .update({ status: "done", result_summary: summary })
+              .eq("id", id);
+            if (error) throw error;
+          });
+        } else if (action.type === "task_create") {
+          await step.run("set-task-type-calendar", async () => {
+            const { error } = await supabase
+              .from("tasks")
+              .update({ task_type: "calendar", calendar_action: action })
+              .eq("id", id);
+            if (error) throw error;
+          });
+
+          const created = await step.run("create-task-item", async () => {
+            return await createTask({ title: action.title, dueDate: action.dueDate });
+          });
+
+          await step.run("update-status-done-task-created", async () => {
+            const due = new Date(`${created.date}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+              weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Kolkata",
+            });
+            const { error } = await supabase
+              .from("tasks")
+              .update({
+                status: "done",
+                result_summary: `Added to tasks: "${created.title}" — due ${due}`,
+                calendar_event_id: created.id,
+              })
+              .eq("id", id);
+            if (error) throw error;
+          });
+        } else if (action.type === "task_list") {
+          await step.run("set-task-type-calendar", async () => {
+            const { error } = await supabase
+              .from("tasks")
+              .update({ task_type: "calendar", calendar_action: action })
+              .eq("id", id);
+            if (error) throw error;
+          });
+
+          const items = await step.run("list-task-items", async () => {
+            return await listTasks();
+          });
+
+          await step.run("update-status-done-task-list", async () => {
+            const summary = items.length === 0
+              ? "No open tasks."
+              : items
+                  .map((t) => {
+                    const due = new Date(`${t.date}T00:00:00+05:30`).toLocaleDateString("en-IN", {
+                      weekday: "short", month: "short", day: "numeric", timeZone: "Asia/Kolkata",
+                    });
+                    return `- ${t.title} (${due})`;
+                  })
+                  .join("\n");
             const { error } = await supabase
               .from("tasks")
               .update({ status: "done", result_summary: summary })
@@ -439,9 +514,11 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
 
             if (sku) {
               let image_url: string | undefined;
+              let unit_price = "";
               if (mcp) {
                 try {
                   const searchResult = await callTool(mcp, "search", { query: sku.name });
+                  const skuLine = searchResult?.split("\n").find((l) => l.includes(`ID: ${sku.id}`));
                   const imgMatch = searchResult?.match(new RegExp(`ID:\\s*${sku.id}[^\\n]*IMG:\\s*(https?:\\/\\/\\S+)`));
                   if (!imgMatch) {
                     // fallback: grab first IMG in results
@@ -450,6 +527,8 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
                   } else {
                     image_url = imgMatch[1];
                   }
+                  const priceMatch = skuLine?.match(/₹[\d,]+/);
+                  if (priceMatch) unit_price = priceMatch[0];
                 } catch {}
               }
               cart.push({
@@ -457,7 +536,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
                 name: sku.name,
                 product_id: sku.id,
                 quantity: item.quantity,
-                unit_price: "",
+                unit_price,
                 url: sku.url,
                 image_url,
               });

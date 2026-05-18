@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { inngest } from '@/inngest/client';
 import { THOUGHT_TAGS } from '@/lib/openai';
 
-const RECLASSIFIABLE_STATUSES = new Set(['pending', 'captured', 'done', 'failed']);
+const ACTIVE_STATUSES = new Set(['pending', 'running', 'needs_approval', 'needs_otp']);
 
 export async function PATCH(
   req: Request,
@@ -40,13 +41,8 @@ export async function PATCH(
       return NextResponse.json({ task: source });
     }
 
-    if (!RECLASSIFIABLE_STATUSES.has(source.status)) {
-      return NextResponse.json(
-        {
-          error: `Cannot reclassify a task in status "${source.status}". Wait until it completes.`,
-        },
-        { status: 409 }
-      );
+    if (ACTIVE_STATUSES.has(source.status)) {
+      await inngest.send({ name: 'task/cancelled', data: { id } });
     }
 
     const { data: updated, error: updErr } = await supabase
@@ -60,11 +56,11 @@ export async function PATCH(
         error_reason: null,
         requires_approval: false,
         approved: false,
-        task_type: null,
         proposed_cart: null,
         calendar_action: null,
         calendar_event_id: null,
         proposed_message: null,
+        classification_confidence: null,
       })
       .eq('id', id)
       .select()
@@ -74,7 +70,12 @@ export async function PATCH(
 
     return NextResponse.json({ task: updated });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('reclassify route error', error);
+    let message = 'Unknown error';
+    if (error instanceof Error) message = error.message;
+    else if (error && typeof error === 'object' && 'message' in error) {
+      message = String((error as { message: unknown }).message);
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

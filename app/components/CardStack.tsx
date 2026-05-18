@@ -10,6 +10,7 @@ import { Layers, Snowflake } from 'lucide-react';
 interface CardStackProps {
   tasks: Task[];
   onDeleteTask: (id: string) => void;
+  pinTaskId?: string | null;
 }
 
 const ANGLES = [
@@ -29,17 +30,21 @@ const ANGLES = [
   },
 ];
 
-export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
+export default function CardStack({ tasks, onDeleteTask, pinTaskId }: CardStackProps) {
   const [localQueue, setLocalQueue] = useState<Task[]>([]);
   const [swipeCount, setSwipeCount] = useState(0);
   const [rerunning, setRerunning] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const desktopDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!dropdownOpen) return;
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideDesktop = desktopDropdownRef.current?.contains(target);
+      const insideMobile = mobileDropdownRef.current?.contains(target);
+      if (!insideDesktop && !insideMobile) {
         setDropdownOpen(false);
       }
     };
@@ -79,6 +84,18 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
     });
   }, [tasks]);
 
+  useEffect(() => {
+    if (!pinTaskId) return;
+    setLocalQueue((prev) => {
+      const idx = prev.findIndex((t) => t.id === pinTaskId);
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      const [pinned] = next.splice(idx, 1);
+      next.unshift(pinned);
+      return next;
+    });
+  }, [pinTaskId, tasks]);
+
   const handleKeep = (id: string) => {
     setSwipeCount((c) => c + 1);
     setTimeout(() => {
@@ -100,9 +117,9 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
 
   if (localQueue.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: 'rgba(255,255,255,0.22)' }}>
+      <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: 'rgba(255,255,255,0.24)' }}>
         <Layers size={48} style={{ opacity: 0.15 }} />
-        <p>No tasks left in the pile.</p>
+        <p className="eva-micro">No tasks left in the pile.</p>
       </div>
     );
   }
@@ -111,99 +128,124 @@ export default function CardStack({ tasks, onDeleteTask }: CardStackProps) {
   const currentPos = (swipeCount % localQueue.length) + 1;
   const frontTask = localQueue[0];
 
+  const rerunButton = (
+    <button
+      onClick={handleRerunFront}
+      disabled={rerunning || frontTask?.status === 'running'}
+      aria-label="Re-run task"
+      style={{
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        color: 'rgba(255,255,255,0.6)',
+      }}
+      className="rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-not-allowed w-14 h-14 text-2xl sm:w-11 sm:h-11 sm:text-xl"
+    >
+      {rerunning ? '⏳' : '↺'}
+    </button>
+  );
+
+  const exploreButton = (
+    <button
+      onClick={() => frontTask && setDropdownOpen((o) => !o)}
+      disabled={!frontTask}
+      aria-label="Explore with Claude"
+      style={{
+        lineHeight: 1,
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        color: 'rgba(255,255,255,0.6)',
+      }}
+      className="rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-not-allowed w-14 h-14 sm:w-11 sm:h-11"
+    >
+      <Snowflake className="w-6 h-6 sm:w-5 sm:h-5" />
+    </button>
+  );
+
+  const exploreDropdown = (placement: 'up' | 'down', align: 'right' | 'center') => (
+    <div
+      className={`absolute z-50 ${placement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'} w-64 rounded-2xl overflow-hidden`}
+      style={{
+        background: 'rgba(20,20,20,0.95)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+      }}
+    >
+      <div className="px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <p className="eva-eyebrow" style={{ color: 'rgba(255,255,255,0.28)' }}>
+          Explore
+        </p>
+      </div>
+      <div className="p-1.5 flex flex-col gap-0.5">
+        {ANGLES.map((angle) => (
+          <button
+            key={angle.id}
+            onClick={() => handleAngle(angle.buildPrompt)}
+            className="w-full text-left px-3 py-2.5 rounded-xl transition-colors flex items-start gap-2.5"
+            style={{ color: 'rgba(255,255,255,0.7)' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+          >
+            <span className="text-base leading-none mt-0.5">{angle.emoji}</span>
+            <div>
+              <p style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.3 }}>
+                {angle.label}
+              </p>
+              <p className="eva-micro mt-0.5" style={{ color: 'rgba(255,255,255,0.38)', fontWeight: 400 }}>
+                {angle.sublabel}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col items-center h-full">
-      <div className="relative w-full flex-1 min-h-0">
-        <AnimatePresence>
-          {visibleTasks.map((task, index) => (
-            <SwipeableTaskCard
-              key={task.id}
-              task={task}
-              index={index}
-              onDelete={handleDelete}
-              onKeep={handleKeep}
-            />
-          )).reverse()}
-        </AnimatePresence>
+      <div className="w-full flex-1 min-h-0 flex gap-3 sm:gap-4">
+        <div className="relative flex-1 min-w-0">
+          <AnimatePresence>
+            {visibleTasks.map((task, index) => (
+              <SwipeableTaskCard
+                key={task.id}
+                task={task}
+                index={index}
+                onDelete={handleDelete}
+                onKeep={handleKeep}
+              />
+            )).reverse()}
+          </AnimatePresence>
+        </div>
+
+        {/* Desktop: stacked column to the right of the card */}
+        <div className="hidden sm:flex flex-col gap-2 self-start pt-1 shrink-0">
+          {rerunButton}
+          <div ref={desktopDropdownRef} className="relative">
+            {dropdownOpen && exploreDropdown('down', 'right')}
+            {exploreButton}
+          </div>
+        </div>
       </div>
 
-      <div className="shrink-0 h-28 flex items-start justify-center pt-3 text-sm tabular-nums font-medium" style={{ color: 'rgba(255,255,255,0.22)' }}>
+      <div className="shrink-0 h-28 flex items-start justify-center pt-3 eva-meta" style={{ color: 'rgba(255,255,255,0.24)' }}>
         {currentPos}/{localQueue.length}
       </div>
 
+      {/* Mobile: fixed bottom — rerun left, explore center */}
       {createPortal(
-        <>
-          {/* Re-run — bottom left */}
-          <button
-            onClick={handleRerunFront}
-            disabled={rerunning || frontTask?.status === 'running'}
-            style={{
-              position: 'fixed', bottom: 32, left: 32, zIndex: 40,
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.6)',
-            }}
-            className="w-14 h-14 rounded-full text-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            {rerunning ? '⏳' : '↺'}
-          </button>
-
-          {/* Explore — bottom center */}
-          <div ref={dropdownRef} style={{ position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)', zIndex: 40 }}>
-            {dropdownOpen && (
-              <div
-                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded-2xl overflow-hidden"
-                style={{
-                  background: 'rgba(20,20,20,0.95)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                }}
-              >
-                <div className="px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>
-                    Explore
-                  </p>
-                </div>
-                <div className="p-1.5 flex flex-col gap-0.5">
-                  {ANGLES.map((angle) => (
-                    <button
-                      key={angle.id}
-                      onClick={() => handleAngle(angle.buildPrompt)}
-                      className="w-full text-left px-3 py-2.5 rounded-xl transition-colors flex items-start gap-2.5"
-                      style={{ color: 'rgba(255,255,255,0.7)' }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.07)'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-                    >
-                      <span className="text-base leading-none mt-0.5">{angle.emoji}</span>
-                      <div>
-                        <p className="text-sm font-medium leading-snug" style={{ color: 'rgba(255,255,255,0.85)' }}>
-                          {angle.label}
-                        </p>
-                        <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                          {angle.sublabel}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <button
-              onClick={() => frontTask && setDropdownOpen((o) => !o)}
-              disabled={!frontTask}
-              style={{
-                lineHeight: 1,
-                background: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.6)',
-              }}
-              className="w-14 h-14 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <Snowflake size={24} />
-            </button>
+        <div className="sm:hidden">
+          <div style={{ position: 'fixed', bottom: 32, left: 32, zIndex: 40 }}>
+            {rerunButton}
           </div>
-        </>,
+          <div
+            ref={mobileDropdownRef}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40"
+          >
+            {dropdownOpen && exploreDropdown('up', 'center')}
+            {exploreButton}
+          </div>
+        </div>,
         document.body
       )}
     </div>

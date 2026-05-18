@@ -8,6 +8,8 @@ const actionLabels: Record<CalendarAction['type'], string> = {
   create: 'Create Event',
   update: 'Update Event',
   delete: 'Delete Event',
+  task_create: 'Add Task',
+  task_list: 'View Tasks',
 };
 
 const actionDotColor: Record<CalendarAction['type'], string> = {
@@ -15,6 +17,8 @@ const actionDotColor: Record<CalendarAction['type'], string> = {
   create: '#22c55e',
   update: '#eab308',
   delete: '#ef4444',
+  task_create: '#22c55e',
+  task_list: '#3b82f6',
 };
 
 function formatDateTime(iso: string): string {
@@ -52,7 +56,7 @@ export default function CalendarActionPreview({
     }
   }
 
-  if (action.type === 'list') return null;
+  if (action.type === 'list' || action.type === 'task_create' || action.type === 'task_list') return null;
 
   return (
     <div
@@ -61,25 +65,25 @@ export default function CalendarActionPreview({
     >
       <div className="flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: actionDotColor[action.type] }} />
-        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+        <span className="eva-eyebrow" style={{ color: 'rgba(255,255,255,0.32)' }}>
           {actionLabels[action.type]}
         </span>
       </div>
 
       {action.type === 'create' && (
-        <div className="flex flex-col gap-1 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
-          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>{action.summary}</p>
-          <p style={{ color: 'rgba(255,255,255,0.45)' }}>
+        <div className="flex flex-col gap-1 eva-body" style={{ color: 'rgba(255,255,255,0.78)' }}>
+          <p style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 600 }}>{action.summary}</p>
+          <p className="eva-num" style={{ color: 'rgba(255,255,255,0.48)' }}>
             {formatDateTime(action.startTime)} → {formatDateTime(action.endTime)}
           </p>
           {action.location && (
-            <p style={{ color: 'rgba(255,255,255,0.45)' }}>📍 {action.location}</p>
+            <p style={{ color: 'rgba(255,255,255,0.48)' }}>📍 {action.location}</p>
           )}
           {action.description && (
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{action.description}</p>
+            <p className="eva-micro" style={{ color: 'rgba(255,255,255,0.48)' }}>{action.description}</p>
           )}
           {action.attendees && action.attendees.length > 0 && (
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <p className="eva-micro" style={{ color: 'rgba(255,255,255,0.48)' }}>
               {action.attendees.join(', ')}
             </p>
           )}
@@ -87,36 +91,36 @@ export default function CalendarActionPreview({
       )}
 
       {action.type === 'update' && (
-        <div className="flex flex-col gap-1 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
-          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>&ldquo;{action.eventSummary}&rdquo;</p>
+        <div className="flex flex-col gap-1 eva-body" style={{ color: 'rgba(255,255,255,0.78)' }}>
+          <p style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 600 }}>&ldquo;{action.eventSummary}&rdquo;</p>
           {action.summary && (
-            <p style={{ color: 'rgba(255,255,255,0.45)' }}>Rename to: {action.summary}</p>
+            <p style={{ color: 'rgba(255,255,255,0.48)' }}>Rename to: {action.summary}</p>
           )}
           {action.startTime && (
-            <p style={{ color: 'rgba(255,255,255,0.45)' }}>
+            <p className="eva-num" style={{ color: 'rgba(255,255,255,0.48)' }}>
               New time: {formatDateTime(action.startTime)} → {action.endTime ? formatDateTime(action.endTime) : ''}
             </p>
           )}
           {action.description && (
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{action.description}</p>
+            <p className="eva-micro" style={{ color: 'rgba(255,255,255,0.48)' }}>{action.description}</p>
           )}
         </div>
       )}
 
       {action.type === 'delete' && (
-        <div className="flex flex-col gap-1 text-sm">
-          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.9)' }}>&ldquo;{action.eventSummary}&rdquo;</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>This event will be permanently removed from your calendar.</p>
+        <div className="flex flex-col gap-1 eva-body">
+          <p style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 600 }}>&ldquo;{action.eventSummary}&rdquo;</p>
+          <p className="eva-micro" style={{ color: 'rgba(255,255,255,0.48)' }}>This event will be permanently removed from your calendar.</p>
         </div>
       )}
 
       <button
         onClick={handleApprove}
         disabled={approving || approved}
-        className="w-full py-2 px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ background: 'rgba(255,255,255,0.9)', color: '#000' }}
-        onMouseEnter={(e) => { if (!approving && !approved) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.75)'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.9)'; }}
+        className="w-full py-2 px-4 rounded-full eva-tab transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ background: 'rgba(255,255,255,0.92)', color: '#000', fontSize: 13, fontWeight: 600 }}
+        onMouseEnter={(e) => { if (!approving && !approved) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.78)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.92)'; }}
       >
         {approved ? 'Confirmed' : approving ? 'Processing...' : `Confirm ${actionLabels[action.type]}`}
       </button>

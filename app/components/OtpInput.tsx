@@ -38,7 +38,7 @@ export default function OtpInput({ taskId }: OtpInputProps) {
 
   if (submitted) {
     return (
-      <p className="text-sm italic" style={{ color: 'rgba(255,255,255,0.4)' }}>
+      <p className="eva-body italic" style={{ color: 'rgba(255,255,255,0.42)' }}>
         OTP submitted — logging in…
       </p>
     );
@@ -50,7 +50,7 @@ export default function OtpInput({ taskId }: OtpInputProps) {
       onClick={(e) => e.stopPropagation()}
       className="flex flex-col gap-2"
     >
-      <p className="text-sm" style={{ color: 'rgba(255,255,255,0.45)' }}>
+      <p className="eva-body" style={{ color: 'rgba(255,255,255,0.48)' }}>
         Enter the OTP sent to your phone to log into Blinkit.
       </p>
       <div className="flex gap-2">
@@ -61,11 +61,14 @@ export default function OtpInput({ taskId }: OtpInputProps) {
           value={otp}
           onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
           placeholder="6-digit OTP"
-          className="flex-1 px-3 py-2 rounded-xl text-sm outline-none transition-colors"
+          className="flex-1 px-3 py-2 rounded-xl outline-none transition-colors eva-num"
           style={{
             background: 'rgba(255,255,255,0.06)',
             border: '1px solid rgba(255,255,255,0.1)',
-            color: 'rgba(255,255,255,0.9)',
+            color: 'rgba(255,255,255,0.92)',
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '0.18em',
           }}
           onFocus={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.25)'; }}
           onBlur={(e) => { (e.currentTarget as HTMLInputElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}
@@ -73,13 +76,13 @@ export default function OtpInput({ taskId }: OtpInputProps) {
         <button
           type="submit"
           disabled={loading || otp.length < 4}
-          className="px-4 py-2 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
-          style={{ background: '#dc2626', color: '#fff' }}
+          className="px-4 py-2 rounded-xl eva-tab transition-opacity disabled:opacity-40"
+          style={{ background: '#dc2626', color: '#fff', fontSize: 13, fontWeight: 600 }}
         >
           {loading ? '…' : 'Submit'}
         </button>
       </div>
-      {error && <p className="text-xs" style={{ color: '#ef4444' }}>{error}</p>}
+      {error && <p className="eva-micro" style={{ color: '#ef4444' }}>{error}</p>}
     </form>
   );
 }

@@ -39,8 +39,10 @@ export type Task = {
   proposed_message?: ProposedMessage | null;
   entry_type?: 'task' | 'thought';
   tags?: string[];
+  category?: 'research' | 'action' | 'personal' | 'work' | 'learning' | 'other' | null;
   classification_confidence?: number | null;
   promoted_to_task_id?: string | null;
+  image_url?: string | null;
 };
 
 const statusDotColor: Record<TaskStatus, string> = {
@@ -64,7 +66,10 @@ const statusLabels: Record<TaskStatus, string> = {
 };
 
 function stripLinks(text: string): string {
-  return text.replace(/\[(.*?)\]\(.*?\)/g, '$1');
+  return text
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1');
 }
 
 function extractFirstLink(text: string | null): { label: string; url: string } | null {
@@ -75,7 +80,7 @@ function extractFirstLink(text: string | null): { label: string; url: string } |
 }
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
-const RECLASSIFIABLE_STATUSES: TaskStatus[] = ['pending', 'done', 'failed', 'captured'];
+const ACTIVE_STATUSES: TaskStatus[] = ['pending', 'running', 'needs_approval', 'needs_otp'];
 
 export default function TaskCard({ task }: { task: Task }) {
   const [rerunning, setRerunning] = useState(false);
@@ -95,17 +100,23 @@ export default function TaskCard({ task }: { task: Task }) {
   const confidence = task.classification_confidence;
   const isLowConfidence =
     typeof confidence === 'number' && confidence < LOW_CONFIDENCE_THRESHOLD;
-  const canReclassify = RECLASSIFIABLE_STATUSES.includes(task.status);
+  const isTask = (task.entry_type ?? 'task') === 'task';
+  const isActive = ACTIVE_STATUSES.includes(task.status);
 
-  async function handleReclassifyToThought() {
+  async function handleReclassifyToThought(confirmIfActive = false) {
     if (reclassifying) return;
+    if (confirmIfActive && isActive) {
+      const ok = window.confirm('Cancel this task and move to thoughts?');
+      if (!ok) return;
+    }
     setReclassifying(true);
     try {
-      await fetch(`/api/tasks/${task.id}/reclassify`, {
+      const res = await fetch(`/api/tasks/${task.id}/reclassify`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entry_type: 'thought' }),
       });
+      if (!res.ok) console.error('reclassify failed', res.status, await res.text());
     } finally {
       setReclassifying(false);
     }
@@ -137,22 +148,19 @@ export default function TaskCard({ task }: { task: Task }) {
       }}
     >
       <div className="flex justify-between items-start gap-4">
-        <p
-          className="font-bold text-base leading-snug flex-1 letter-tight"
-          style={{ color: 'rgba(255,255,255,0.9)', letterSpacing: '-0.02em' }}
-        >
+        <p className="eva-title flex-1" style={{ color: 'rgba(255,255,255,0.92)' }}>
           {task.input}
         </p>
 
         {task.status !== 'done' && (
-          <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+          <div className="flex items-center gap-1.5 shrink-0 pt-1">
             <div
               className={`w-1.5 h-1.5 rounded-full shrink-0 ${isRunning ? 'animate-pulse' : ''}`}
               style={{ background: dotColor }}
             />
             <span
-              className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap"
-              style={{ color: 'rgba(255,255,255,0.3)' }}
+              className="eva-eyebrow whitespace-nowrap"
+              style={{ color: 'rgba(255,255,255,0.32)' }}
             >
               {statusLabels[task.status]}
             </span>
@@ -160,12 +168,12 @@ export default function TaskCard({ task }: { task: Task }) {
         )}
       </div>
 
-      {isLowConfidence && canReclassify && (
+      {isLowConfidence && isTask && (
         <button
-          onClick={handleReclassifyToThought}
+          onClick={() => handleReclassifyToThought(true)}
           disabled={reclassifying}
-          className="text-[11px] italic self-start transition-colors disabled:opacity-40"
-          style={{ color: 'rgba(255,255,255,0.25)' }}
+          className="eva-micro italic self-start transition-colors disabled:opacity-40"
+          style={{ color: 'rgba(255,255,255,0.28)' }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.55)';
           }}
@@ -178,14 +186,14 @@ export default function TaskCard({ task }: { task: Task }) {
       )}
 
       {(task.result_summary || task.error_reason) && (
-        <div className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+        <div className="eva-body" style={{ color: 'rgba(255,255,255,0.58)' }}>
           {task.error_reason ? (
             <span style={{ color: '#ef4444' }}>Error: {task.error_reason}</span>
           ) : (
             <ol className="flex flex-col gap-2">
               {(task.result_summary ?? '').split('\n').filter(line => line.trim()).map((line, i) => (
-                <li key={i} className="flex gap-2 leading-snug">
-                  <span className="shrink-0 font-medium" style={{ color: 'rgba(255,255,255,0.18)' }}>{i + 1}.</span>
+                <li key={i} className="flex gap-2">
+                  <span className="shrink-0 eva-num" style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 500 }}>{i + 1}.</span>
                   <span>{stripLinks(line.replace(/^[-–—]\s*/, ''))}</span>
                 </li>
               ))}
@@ -215,10 +223,10 @@ export default function TaskCard({ task }: { task: Task }) {
           href={firstLink.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-center py-2 px-4 rounded-full text-sm transition-colors"
+          className="block text-center py-2 px-4 rounded-full eva-micro transition-colors"
           style={{
             border: '1px solid rgba(255,255,255,0.1)',
-            color: 'rgba(255,255,255,0.4)',
+            color: 'rgba(255,255,255,0.42)',
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.7)';
@@ -248,7 +256,24 @@ export default function TaskCard({ task }: { task: Task }) {
           {rerunning ? '⏳' : '↺'}
         </button>
         <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>{date}</span>
+          {isTask && (
+            <button
+              onClick={() => handleReclassifyToThought(true)}
+              disabled={reclassifying}
+              className="eva-micro transition-colors disabled:opacity-40"
+              style={{ color: 'rgba(255,255,255,0.28)' }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.55)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.25)';
+              }}
+              title="Move to thoughts"
+            >
+              {reclassifying ? '…' : '→ thought'}
+            </button>
+          )}
+          <span className="eva-meta" style={{ color: 'rgba(255,255,255,0.22)' }}>{date}</span>
           <LLMDropdown task={task} compact />
         </div>
       </div>

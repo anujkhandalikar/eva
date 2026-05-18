@@ -47,11 +47,11 @@ export default function FilterBar({
               <button
                 key={key}
                 onClick={() => onFilterChange(key)}
-                className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
+                className="eva-tab px-3 py-1 rounded-full transition-colors"
                 style={{
-                  color: active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.4)',
+                  color: active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.42)',
                   background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
-                  letterSpacing: '-0.01em',
+                  fontWeight: active ? 600 : 500,
                 }}
               >
                 {TAB_LABEL[key]}
@@ -65,12 +65,14 @@ export default function FilterBar({
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search…"
-          className="flex-1 px-3 py-1.5 rounded-full text-sm outline-none"
+          className="flex-1 px-3 py-1.5 rounded-full outline-none"
           style={{
             background: 'rgba(255,255,255,0.04)',
             border: '1px solid rgba(255,255,255,0.06)',
             color: 'rgba(255,255,255,0.9)',
-            letterSpacing: '-0.01em',
+            fontSize: 13,
+            fontWeight: 500,
+            letterSpacing: '-0.012em',
           }}
         />
       </div>
@@ -83,9 +85,9 @@ export default function FilterBar({
               <button
                 key={tag}
                 onClick={() => onToggleTag(tag)}
-                className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full transition-colors"
+                className="eva-tag px-2 py-0.5 rounded-full transition-colors"
                 style={{
-                  color: active ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.45)',
+                  color: active ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.48)',
                   background: active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
                   border: active
                     ? '1px solid rgba(255,255,255,0.18)'

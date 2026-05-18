@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { background: #333; padding: 50px; color: white; display: flex; gap: 20px; }
+  .box { width: 100px; height: 100px; background: black; position: relative; }
+  
+  .inward {
+    border-radius: 14px;
+  }
+  
+  .outward-mask {
+    border-radius: 0 0 14px 14px;
+    mask-image: radial-gradient(circle at 0 0, transparent 14px, black 14.5px),
+                radial-gradient(circle at 100% 0, transparent 14px, black 14.5px);
+    mask-size: 50% 100%;
+    mask-repeat: no-repeat;
+    mask-position: left, right;
+  }
+
+  .outward-flare {
+    width: 72px;
+    margin: 0 auto;
+    border-radius: 0 0 14px 14px;
+  }
+  .outward-flare::before, .outward-flare::after {
+    content: ''; position: absolute; top: 0; width: 14px; height: 14px; background: transparent;
+  }
+  .outward-flare::before {
+    left: -14px;
+    border-top-right-radius: 14px;
+    box-shadow: 7px -7px 0 7px #000;
+  }
+  .outward-flare::after {
+    right: -14px;
+    border-top-left-radius: 14px;
+    box-shadow: -7px -7px 0 7px #000;
+  }
+</style>
+</head>
+<body>
+  <div>
+    Inward (current):
+    <div class="box inward"></div>
+  </div>
+  <div>
+    Outward mask (concave cut):
+    <div class="box outward-mask"></div>
+  </div>
+  <div>
+    Outward flare (fillet):
+    <div class="box outward-flare"></div>
+  </div>
+</body>
+</html>

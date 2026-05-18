@@ -17,7 +17,95 @@ body {
 body {
   background: #000000;
   color: rgba(255, 255, 255, 0.9);
-  font-family: -apple-system, "SF Pro Display", "SF Pro Text", sans-serif;
+  font-family: -apple-system, "SF Pro Text", "SF Pro Display", BlinkMacSystemFont, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.005em;
+}
+
+input, textarea, button {
+  font-family: inherit;
+  font-feature-settings: inherit;
+}
+
+/* ── Eva type tokens — derived from the overlay pill. Every dashboard
+   surface uses the same vocabulary so weights/tracking stay consistent. ── */
+
+.eva-display {
+  font-family: -apple-system, "SF Pro Display", "SF Pro Text", BlinkMacSystemFont, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 1.18;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
+
+.eva-title {
+  font-family: -apple-system, "SF Pro Text", "SF Pro Display", BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.026em;
+  line-height: 1.3;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+.eva-body {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.006em;
+  line-height: 1.55;
+}
+
+.eva-tab {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+
+.eva-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.eva-meta {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.eva-micro {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+}
+
+.eva-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.eva-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Ambient status pulses — mirror electron/overlay/index.html .ambient-dot */
+@keyframes ambientPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
+}
+@keyframes ambientPulseFaint {
+  0%, 100% { opacity: 0.95; }
+  50%      { opacity: 0.5; }
+}
+.ambient-pulse-fast  { animation: ambientPulse 1s ease-in-out infinite; }
+.ambient-pulse-mid   { animation: ambientPulse 1.4s ease-in-out infinite; }
+.ambient-pulse-slow  { animation: ambientPulseFaint 2s ease-in-out infinite; }
