@@ -19,6 +19,7 @@ const input          = document.getElementById('taskInput') as HTMLInputElement;
 const notchConfirm   = document.getElementById('notchConfirm') as HTMLDivElement;
 const confettiCanvas = document.getElementById('confetti') as HTMLCanvasElement;
 const ctx            = confettiCanvas.getContext('2d')!;
+const screenshotBtn  = document.getElementById('screenshotBtn') as HTMLButtonElement;
 const browseBtn      = document.getElementById('browseBtn') as HTMLButtonElement;
 const browseBadge    = document.getElementById('browseBadge') as HTMLSpanElement;
 const taskList       = document.getElementById('taskList') as HTMLDivElement;
@@ -45,7 +46,7 @@ const EXPANDED_H    = 68;
 const BASE_W        = 300;
 const EXPANDED_W    = 480;
 const MAX_W         = 900;
-const INPUT_OVERHEAD = 82; // left-pad + right-pad + gap + browse-btn + buffer
+const INPUT_OVERHEAD = 112; // left-pad + right-pad + gap + buttons + buffer
 const ROW_H         = 30;
 const TAB_BAR_H     = 34; // tabs row padding + content
 const PANEL_EXTRA   = 20 + TAB_BAR_H; // separator + list padding + tab bar
@@ -553,6 +554,27 @@ function closeBrowse() {
   browseBtn.classList.remove('active');
   ipcRenderer.send('set-size', { w: currentWidth(), h: inputHeight() });
 }
+
+// ── Screenshot button ──
+screenshotBtn.addEventListener('click', async () => {
+  if (screenshotBtn.classList.contains('in-flight')) return;
+  screenshotBtn.classList.add('in-flight');
+  
+  try {
+    const buffer = await ipcRenderer.invoke('screenshot:capture');
+    if (buffer) {
+      const blob = new Blob([buffer], { type: 'image/png' });
+      await attachImageBlob(blob, `screenshot-${Date.now()}.png`);
+    } else {
+      collapseAndConfirm('Capture Failed');
+    }
+  } catch (err) {
+    console.error('Screenshot failed', err);
+    collapseAndConfirm('Capture Error');
+  } finally {
+    screenshotBtn.classList.remove('in-flight');
+  }
+});
 
 // ── Browse button toggle ──
 browseBtn.addEventListener('click', () => {

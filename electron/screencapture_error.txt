@@ -1,0 +1,2 @@
+Code: 1
+Stderr: could not create image from display

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell, desktopCapturer } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
@@ -21,7 +21,10 @@ const native: { placeInNotch: (handle: Buffer, w: number, h: number) => void } =
 let mainWindow: BrowserWindow | null = null;
 let openedViaHotkey = false;
 
-const W = 300;
+const PILL_W = 300;
+const CORNER_RADIUS = 12;
+// Window width includes the pill and the two outward-turning corners
+const W = PILL_W + (CORNER_RADIUS * 2);
 const H = 68;
 
 // Ambient mode: wide pill same width as the open pill, centered on the notch.
@@ -73,9 +76,9 @@ function createWindow() {
 
 function moveToAmbient() {
   if (!mainWindow) return;
-  // Centered, ambient size. placeInNotch installs the frame-constraint swizzle
-  // so the window sits flush with the top of the screen at y=0.
-  native.placeInNotch(mainWindow.getNativeWindowHandle(), W_AMBIENT, ambientH());
+  // Centered, ambient size. Goes through setSizeImmediate so _currentW/_currentH
+  // are seeded before any animation runs.
+  setSizeImmediate(W_AMBIENT, ambientH());
 }
 
 function collapseToAmbient() {
@@ -86,10 +89,14 @@ function collapseToAmbient() {
   mainWindow.webContents.send('did-hide');
 }
 
+// Track the window's current logical size ourselves. We use native.placeInNotch
+// exclusively to resize/reposition (no Electron setSize), so mainWindow.getSize()
+// would return stale data. Keep this in sync with every setSizeImmediate call.
+let _currentW = 0;
+let _currentH = 0;
+
 function isOverlayOpen(): boolean {
-  if (!mainWindow) return false;
-  const [, h] = mainWindow.getSize();
-  return h > ambientH() + 4;
+  return _currentH > ambientH() + 4;
 }
 
 function showOverlay(grabFocus = false) {
@@ -122,6 +129,11 @@ function hideOverlay() {
 
 app.whenReady().then(() => {
   createWindow();
+
+  // Trigger macOS screen recording permission dialog if not already granted.
+  if (process.platform === 'darwin') {
+    desktopCapturer.getSources({ types: ['screen'] }).catch(() => {});
+  }
 
   const display = screen.getPrimaryDisplay();
   const screenCenterX = display.bounds.width / 2;
@@ -278,14 +290,19 @@ function cancelResizeAnim() {
 
 function setSizeImmediate(w: number, h: number) {
   if (!mainWindow) return;
-  mainWindow.setSize(w, h);
+  // Track size ourselves — we never call Electron's setSize because it
+  // recalculates the window origin from Electron's internal (wrong) position,
+  // fighting the native placeInNotch placement and pushing the window down.
+  _currentW = w;
+  _currentH = h;
   native.placeInNotch(mainWindow.getNativeWindowHandle(), w, h);
 }
 
 function animateResize(targetW: number, targetH: number, durationMs = 220) {
   if (!mainWindow) return;
   cancelResizeAnim();
-  const [startW, startH] = mainWindow.getSize();
+  const startW = _currentW || W_AMBIENT;
+  const startH = _currentH || ambientH();
   if (startW === targetW && startH === targetH) return;
   const startT = Date.now();
 
@@ -351,5 +368,27 @@ ipcMain.on('clear-tasks', async (_, target: string) => {
     mainWindow?.webContents.send('clear-result', data.count ?? 0);
   } catch {
     mainWindow?.webContents.send('clear-result', -1);
+  }
+});
+
+ipcMain.handle('screenshot:capture', async () => {
+  try {
+    // We request a large thumbnail size so it captures full resolution of the display.
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 4096, height: 4096 } });
+    if (sources && sources.length > 0) {
+      // Find the screen the user's cursor is currently on.
+      const activeDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+      const targetId = activeDisplay.id.toString();
+      const match = sources.find(s => s.display_id === targetId);
+      
+      const sourceToCapture = match || sources[0];
+      // Return the PNG buffer directly from memory, bypassing the file system entirely.
+      return sourceToCapture.thumbnail.toPNG();
+    }
+    fs.writeFileSync(path.join(__dirname, 'screencapture_error.txt'), 'No screen sources found.');
+    return null;
+  } catch (err) {
+    fs.writeFileSync(path.join(__dirname, 'screencapture_error.txt'), `DesktopCapturer Error: ${String(err)}`);
+    return null;
   }
 });

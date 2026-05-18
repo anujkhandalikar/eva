@@ -23,17 +23,41 @@
        and the input row is revealed. No scaleY animation — window-resize
        animation in main process drives the drop/collapse feel. ── */
     .pill {
-      width: 100%;
+      width: 300px;
+      margin: 0 auto;
       background: #000000;
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
-      border-radius: 14px;
+      border-radius: 0 0 14px 14px;
       display: flex;
       flex-direction: column;
       align-items: stretch;
       height: 100vh;
       overflow: hidden;
       position: relative;
+    }
+
+    /* Outward-turning (reverse-rounded) corners to blend with the top edge */
+    body::before,
+    body::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 12px;
+      height: 12px;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    body::before {
+      left: 0;
+      /* Masks the corner to create an inverted curve connecting the pill to the screen top */
+      background: radial-gradient(circle at bottom left, transparent 12px, #000000 12.5px);
+    }
+
+    body::after {
+      right: 0;
+      background: radial-gradient(circle at bottom right, transparent 12px, #000000 12.5px);
     }
 
     .pill.drop .input-row { animation: fadeIn 0.1s ease 0.12s both; }
@@ -125,6 +149,28 @@
     .pill.drag-over {
       box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55);
     }
+
+    /* ── Screenshot button ── */
+    .screenshot-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.22);
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      flex-shrink: 0;
+      position: relative;
+      margin-bottom: 2px;
+      transition: color 0.2s ease;
+    }
+
+    .screenshot-btn:hover { color: rgba(255,255,255,0.55); }
+    .screenshot-btn.in-flight { color: rgba(255,255,255,0.05) !important; cursor: not-allowed; pointer-events: none; }
 
     /* ── Browse button ── */
     .browse-btn {
@@ -327,7 +373,9 @@
       position: fixed;
       inset: 0;
       background: #000000;
-      border-radius: 14px;
+      /* Only round the bottom corners — top corners must stay square so the
+         body::before/after outward-turning corner pseudo-elements are not covered. */
+      border-radius: 0 0 14px 14px;
       display: flex;
       align-items: flex-end;
       justify-content: center;
@@ -392,7 +440,7 @@
     .ambient-dot {
       position: fixed;
       top: 7px;
-      right: 18px;
+      right: 30px;
       width: 7px;
       height: 7px;
       border-radius: 50%;
@@ -442,6 +490,12 @@
         <div class="clear" id="imageChipClear">×</div>
       </div>
       <input type="text" id="taskInput" autocomplete="off" spellcheck="false">
+      <button class="screenshot-btn" id="screenshotBtn" tabindex="-1" title="Capture Screen">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+      </button>
       <button class="browse-btn" id="browseBtn" tabindex="-1">
         <svg width="11" height="9" viewBox="0 0 11 9" fill="currentColor">
           <rect y="0"    width="11" height="1.5" rx="0.75"/>
