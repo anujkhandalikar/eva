@@ -336,6 +336,10 @@ ipcMain.on('open-task', (_, id?: string) => {
   shell.openExternal(url);
 });
 
+ipcMain.on('open-bento', () => {
+  shell.openExternal('http://localhost:3000/#view=bento');
+});
+
 ipcMain.on('clear-tasks', async (_, target: string) => {
   try {
     const url =

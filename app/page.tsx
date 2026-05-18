@@ -17,6 +17,15 @@ function readEntryHash(): string | null {
   return decodeURIComponent(hash.slice('#entry-'.length));
 }
 
+function readViewHash(): ViewMode | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash;
+  if (!hash.startsWith('#view=')) return null;
+  const value = hash.slice('#view='.length);
+  if (value === 'cards' || value === 'bento' || value === 'list') return value;
+  return null;
+}
+
 export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,7 +95,12 @@ export default function Dashboard() {
   // Kept as an effect (not lazy state init) so SSR and first client render
   // agree on `view='cards'` — flipping happens post-mount.
   useEffect(() => {
-    if (readEntryHash()) setView('list');
+    if (readEntryHash()) {
+      setView('list');
+      return;
+    }
+    const v = readViewHash();
+    if (v) setView(v);
   }, []);
 
   useEffect(() => {
@@ -104,13 +118,17 @@ export default function Dashboard() {
   useEffect(() => {
     function onHashChange() {
       const id = readEntryHash();
-      if (!id) return;
-      setView('list');
-      const el = document.getElementById(`entry-${id}`);
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      setHighlightedId(id);
-      setTimeout(() => setHighlightedId(null), 2200);
+      if (id) {
+        setView('list');
+        const el = document.getElementById(`entry-${id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedId(id);
+        setTimeout(() => setHighlightedId(null), 2200);
+        return;
+      }
+      const v = readViewHash();
+      if (v) setView(v);
     }
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);

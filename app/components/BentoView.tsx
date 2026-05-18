@@ -15,6 +15,7 @@ const SIZE_CLASS: Record<TileSize, string> = {
 // Border color mirrors electron/overlay/index.html `.ambient-dot` palette.
 // `done` is the silent default — neutral border.
 const DEFAULT_BORDER = 'rgba(255,255,255,0.08)';
+const COLORED_BORDER = 'rgba(255,255,255,0.10)';
 const STATUS_BORDER: Record<string, string | null> = {
   running: 'rgba(234,179,8,0.6)',
   needs_approval: 'rgba(249,115,22,0.65)',
@@ -25,6 +26,19 @@ const STATUS_BORDER: Record<string, string | null> = {
   done: null,
 };
 
+// Tile fill encodes task category. Stable: same category = same color forever.
+// Red/orange/amber avoided — reserved for status borders + stream highlight.
+// Missing category (thoughts, old rows, "other") → graphite neutral.
+const GRAPHITE = '#141414';
+const CATEGORY_FILL: Record<string, string> = {
+  research: '#5A3FB8', // violet
+  action: '#5A3FB8',   // violet (same as research)
+  personal: '#2E8056', // emerald
+  work: '#7B3FA0',     // plum
+  learning: '#7B3FA0', // plum (same as work)
+  other: GRAPHITE,
+};
+
 function hashId(id: string): number {
   let h = 2166136261;
   for (let i = 0; i < id.length; i++) {
@@ -32,6 +46,13 @@ function hashId(id: string): number {
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+function pickFill(task: Task): string {
+  if (task.image_url) return '#000';
+  if (task.entry_type === 'thought') return GRAPHITE;
+  if (!task.category) return GRAPHITE;
+  return CATEGORY_FILL[task.category] ?? GRAPHITE;
 }
 
 function pickSize(task: Task): TileSize {
@@ -100,7 +121,10 @@ function BentoTile({ task, size, onOpen }: TileProps) {
   const big = size === 'lg' || size === 'wide' || size === 'tall';
   const hasImage = !!task.image_url;
   const isThought = task.entry_type === 'thought';
-  const borderColor = STATUS_BORDER[task.status] ?? DEFAULT_BORDER;
+  const fill = pickFill(task);
+  const isColored = !hasImage && fill !== GRAPHITE;
+  const borderColor =
+    STATUS_BORDER[task.status] ?? (isColored ? COLORED_BORDER : DEFAULT_BORDER);
 
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
@@ -110,10 +134,11 @@ function BentoTile({ task, size, onOpen }: TileProps) {
   return (
     <button
       onClick={onOpen}
-      className={`${SIZE_CLASS[size]} relative rounded-xl overflow-hidden text-left flex flex-col justify-between p-3 transition-transform hover:scale-[1.015] active:scale-[0.99]`}
+      title={isColored ? task.category ?? undefined : undefined}
+      className={`${SIZE_CLASS[size]} relative rounded-xl overflow-hidden text-left flex flex-col justify-between p-3 transition-[transform,filter] hover:scale-[1.015] active:scale-[0.99] hover:brightness-110`}
       style={{
-        background: hasImage ? '#000' : '#111111',
-        border: `1px ${isThought ? 'dotted' : 'solid'} ${borderColor}`,
+        background: hasImage ? '#000' : fill,
+        border: `${isThought ? '1px dotted' : '3px solid'} ${borderColor}`,
       }}
     >
       {hasImage && task.image_url && (
@@ -136,7 +161,13 @@ function BentoTile({ task, size, onOpen }: TileProps) {
       <div className="relative flex items-start justify-end gap-2">
         <span
           className="eva-meta shrink-0"
-          style={{ color: hasImage ? 'rgba(255,255,255,0.65)' : 'rgba(255,255,255,0.28)' }}
+          style={{
+            color: hasImage
+              ? 'rgba(255,255,255,0.65)'
+              : isColored
+                ? 'rgba(255,255,255,0.55)'
+                : 'rgba(255,255,255,0.28)',
+          }}
         >
           {date}
         </span>

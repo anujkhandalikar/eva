@@ -163,7 +163,7 @@ export default function CardStack({ tasks, onDeleteTask, pinTaskId }: CardStackP
 
   const exploreDropdown = (placement: 'up' | 'down', align: 'right' | 'center') => (
     <div
-      className={`absolute ${placement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'} w-64 rounded-2xl overflow-hidden`}
+      className={`absolute z-50 ${placement === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'} ${align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'} w-64 rounded-2xl overflow-hidden`}
       style={{
         background: 'rgba(20,20,20,0.95)',
         border: '1px solid rgba(255,255,255,0.1)',

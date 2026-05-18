@@ -39,6 +39,7 @@ export type Task = {
   proposed_message?: ProposedMessage | null;
   entry_type?: 'task' | 'thought';
   tags?: string[];
+  category?: 'research' | 'action' | 'personal' | 'work' | 'learning' | 'other' | null;
   classification_confidence?: number | null;
   promoted_to_task_id?: string | null;
   image_url?: string | null;

@@ -1,6 +1,6 @@
 import { inngest } from "./client";
 import { supabase } from "@/lib/supabase";
-import { classifyEntry, detectIntent, processTask } from "@/lib/openai";
+import { classifyEntry, classifyCategory, detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
 import { listEvents, createEvent, createTask, listTasks } from "@/lib/googleCalendar";
@@ -39,13 +39,29 @@ export const executeTask = inngest.createFunction(
     const classification = await step.run("classify-entry", async () => {
       const { data: row, error: fetchErr } = await supabase
         .from("tasks")
-        .select("entry_type")
+        .select("entry_type, category")
         .eq("id", id)
         .single();
       if (fetchErr) throw fetchErr;
 
       if (row.entry_type === "task") {
-        return { entry_type: "task" as const, tags: [] as string[], confidence: 1 };
+        // Promoted task — entry_type already settled. Category may be missing
+        // (older row, or thought→task promotion). Backfill it here.
+        let category = row.category as string | null;
+        if (!category) {
+          category = await classifyCategory(input);
+          const { error } = await supabase
+            .from("tasks")
+            .update({ category })
+            .eq("id", id);
+          if (error) throw error;
+        }
+        return {
+          entry_type: "task" as const,
+          tags: [] as string[],
+          category,
+          confidence: 1,
+        };
       }
 
       const result = await classifyEntry(input);
@@ -55,6 +71,7 @@ export const executeTask = inngest.createFunction(
         .update({
           entry_type: result.entry_type,
           tags: result.tags,
+          category: result.category,
           classification_confidence: result.confidence,
         })
         .eq("id", id);

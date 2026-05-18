@@ -50,7 +50,7 @@ const ROW_H         = 30;
 const TAB_BAR_H     = 34; // tabs row padding + content
 const PANEL_EXTRA   = 20 + TAB_BAR_H; // separator + list padding + tab bar
 const MAX_H         = 360; // cap — panel scrolls beyond this
-const THOUGHTS_VISIBLE_LIMIT = 10;
+const VISIBLE_LIMIT = 5;
 
 let inputExpanded = false;
 
@@ -406,7 +406,10 @@ function renderTaskList(tasks: Task[]) {
     taskList.appendChild(empty);
     return;
   }
-  tasks.forEach(task => {
+
+  const visible = tasks.slice(0, VISIBLE_LIMIT);
+
+  visible.forEach(task => {
     const row = document.createElement('div');
     row.className = 'task-row';
 
@@ -431,6 +434,16 @@ function renderTaskList(tasks: Task[]) {
 
     taskList.appendChild(row);
   });
+
+  if (tasks.length > VISIBLE_LIMIT) {
+    const footer = document.createElement('div');
+    footer.className = 'thought-footer';
+    footer.textContent = 'more';
+    footer.addEventListener('click', () => {
+      ipcRenderer.send('open-bento');
+    });
+    taskList.appendChild(footer);
+  }
 }
 
 function renderThoughtList(thoughts: Task[]) {
@@ -443,7 +456,7 @@ function renderThoughtList(thoughts: Task[]) {
     return;
   }
 
-  const visible = thoughts.slice(0, THOUGHTS_VISIBLE_LIMIT);
+  const visible = thoughts.slice(0, VISIBLE_LIMIT);
 
   visible.forEach(thought => {
     const row = document.createElement('div');
@@ -467,33 +480,15 @@ function renderThoughtList(thoughts: Task[]) {
     taskList.appendChild(row);
   });
 
-  if (thoughts.length > THOUGHTS_VISIBLE_LIMIT) {
+  if (thoughts.length > VISIBLE_LIMIT) {
     const footer = document.createElement('div');
     footer.className = 'thought-footer';
-    footer.textContent = `… ${thoughts.length - THOUGHTS_VISIBLE_LIMIT} more on dashboard`;
+    footer.textContent = 'more';
     footer.addEventListener('click', () => {
-      ipcRenderer.send('open-task', '');
+      ipcRenderer.send('open-bento');
     });
     taskList.appendChild(footer);
   }
-}
-
-const STATUS_PRIORITY: Record<Task['status'], number> = {
-  needs_approval: 0,
-  needs_otp:      0,
-  running:        1,
-  pending:        1,
-  failed:         2,
-  done:           3,
-  captured:       4,
-};
-
-function sortByUrgency(tasks: Task[]): Task[] {
-  return [...tasks].sort((a, b) => {
-    const pd = STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status];
-    if (pd !== 0) return pd;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
 }
 
 function sortByRecency(entries: Task[]): Task[] {
@@ -513,13 +508,16 @@ function renderActiveTab() {
   const { tasks, thoughts } = splitEntries(storedTasks);
 
   if (activeTab === 'tasks') {
-    renderTaskList(sortByUrgency(tasks));
-    return tasks.length;
+    const sorted = sortByRecency(tasks);
+    renderTaskList(sorted);
+    const visible = Math.min(sorted.length, VISIBLE_LIMIT);
+    const footer = sorted.length > VISIBLE_LIMIT ? 1 : 0;
+    return visible + footer;
   } else {
     const sorted = sortByRecency(thoughts);
     renderThoughtList(sorted);
-    const visible = Math.min(sorted.length, THOUGHTS_VISIBLE_LIMIT);
-    const footer = sorted.length > THOUGHTS_VISIBLE_LIMIT ? 1 : 0;
+    const visible = Math.min(sorted.length, VISIBLE_LIMIT);
+    const footer = sorted.length > VISIBLE_LIMIT ? 1 : 0;
     return visible + footer;
   }
 }
