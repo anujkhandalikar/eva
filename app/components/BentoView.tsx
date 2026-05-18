@@ -43,13 +43,6 @@ function pickSize(task: Task): TileSize {
   return pool[h % pool.length];
 }
 
-function stripMarkup(text: string): string {
-  return text
-    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1');
-}
-
 interface BentoViewProps {
   tasks: Task[];
   onOpen: (id: string) => void;
@@ -106,7 +99,6 @@ function BentoTile({ task, size, onOpen }: TileProps) {
   const isRunning = status === 'running';
   const big = size === 'lg' || size === 'wide' || size === 'tall';
   const hasImage = !!task.image_url;
-  const summary = task.result_summary ? stripMarkup(task.result_summary).split('\n').filter(Boolean)[0] : null;
 
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
@@ -169,21 +161,6 @@ function BentoTile({ task, size, onOpen }: TileProps) {
         >
           {task.input || (hasImage && task.status === 'pending' ? 'Eva is looking at this…' : '—')}
         </p>
-        {big && summary && !hasImage && (
-          <p
-            className="eva-body"
-            style={{
-              color: 'rgba(255,255,255,0.55)',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              fontSize: 13,
-            }}
-          >
-            {summary}
-          </p>
-        )}
       </div>
     </button>
   );

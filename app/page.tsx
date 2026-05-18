@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [pinTaskId, setPinTaskId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetRef = useRef<AddEntrySheetHandle>(null);
 
@@ -149,7 +150,11 @@ export default function Dashboard() {
 
       <div className="max-w-3xl w-full mx-auto flex flex-col h-full">
 
-        <div className="py-5 flex items-center justify-end shrink-0">
+        <div
+          className={`py-5 flex items-center justify-end shrink-0 ${
+            view === 'cards' ? 'sm:pr-[calc(2.75rem+1rem)]' : ''
+          }`}
+        >
           <ViewToggle view={view} onChange={setView} />
         </div>
 
@@ -181,15 +186,16 @@ export default function Dashboard() {
             </div>
           ) : view === 'cards' ? (
             <CardStack
-              tasks={tasks.filter((t) => t.entry_type !== 'thought')}
+              tasks={tasks}
               onDeleteTask={handleDeleteTask}
+              pinTaskId={pinTaskId}
             />
           ) : view === 'bento' ? (
             <BentoView
               tasks={tasks}
               onOpen={(id) => {
-                setView('list');
-                window.location.hash = `entry-${id}`;
+                setPinTaskId(id);
+                setView('cards');
               }}
             />
           ) : (

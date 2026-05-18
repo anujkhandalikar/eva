@@ -89,6 +89,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
 
   const isRunning = task.status === 'running';
   const dotColor = statusDotColor[task.status];
+  const isThought = task.entry_type === 'thought';
 
   return (
     <motion.div
@@ -157,11 +158,47 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
             </div>
           )}
 
+          {task.image_url && isThought && (
+            <a
+              href={task.image_url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 min-h-0 block w-full"
+            >
+              <img
+                src={task.image_url}
+                alt=""
+                className="rounded-lg object-contain w-full h-full"
+              />
+            </a>
+          )}
+
+          {task.image_url && !isThought && (
+            <a
+              href={task.image_url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="shrink-0 block self-start"
+            >
+              <img
+                src={task.image_url}
+                alt=""
+                className="rounded-lg object-cover"
+                style={{
+                  maxHeight: 200,
+                  maxWidth: '100%',
+                }}
+              />
+            </a>
+          )}
+
           <p
             className="eva-display shrink-0"
             style={{ color: 'rgba(255,255,255,0.94)' }}
           >
-            {task.input}
+            {task.input || (isThought && task.image_url && task.status === 'pending' ? 'Eva is looking at this…' : task.input)}
           </p>
 
           <div
@@ -183,7 +220,7 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
                   </ol>
                 )}
               </div>
-            ) : (
+            ) : isThought ? null : (
               <div className="h-full flex items-center justify-center eva-body italic" style={{ color: 'rgba(255,255,255,0.24)' }}>
                 {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
               </div>
