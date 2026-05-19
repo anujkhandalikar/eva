@@ -575,7 +575,7 @@ ${basePrompt}`
 
   const response = await client.responses.create({
     model: "gpt-4o",
-    tools: [{ type: "web_search_preview" }],
+    tools: selfReferential ? [] : [{ type: "web_search_preview" }],
     input: prompt,
   });
 
