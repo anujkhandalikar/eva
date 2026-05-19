@@ -29,6 +29,12 @@ const TAB_BAR_H = 34; // tabs row padding + content
 const PANEL_EXTRA = 20 + TAB_BAR_H; // separator + list padding + tab bar
 const MAX_H = 360; // cap — panel scrolls beyond this
 const VISIBLE_LIMIT = 5;
+// Extra window height reserved below the pill so its drop shadow has room
+// to render. Pill CSS height = 100vh - SHADOW_PAD. Must match main.ts.
+const SHADOW_PAD = 10;
+function sendSetSize(w, h) {
+    ipcRenderer.send('set-size', { w, h: h + SHADOW_PAD });
+}
 let inputExpanded = false;
 function inputHeight() {
     return inputExpanded ? EXPANDED_H : BASE_H;
@@ -40,7 +46,7 @@ function currentWidth() {
     return Math.min(Math.max(floor, textW + INPUT_OVERHEAD), MAX_W);
 }
 function updateSize() {
-    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: inputHeight() });
+    sendSetSize(currentWidth() + WING_W, inputHeight());
 }
 function expandInput() {
     if (inputExpanded)
@@ -51,7 +57,7 @@ function expandInput() {
 function resetSize() {
     inputExpanded = false;
     pill.classList.remove('expanded');
-    ipcRenderer.send('set-size', { w: BASE_W + WING_W, h: BASE_H });
+    sendSetSize(BASE_W + WING_W, BASE_H);
 }
 let browseOpen = false;
 let pendingBrowseOpen = false;
@@ -460,7 +466,7 @@ function openBrowse(entries) {
     browseBtn.classList.add('active');
     storedTasks = entries;
     const visibleRows = renderActiveTab();
-    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
+    sendSetSize(currentWidth() + WING_W, browseHeight(visibleRows));
 }
 tabTasks.addEventListener('click', () => {
     if (activeTab === 'tasks')
@@ -468,7 +474,7 @@ tabTasks.addEventListener('click', () => {
     activeTab = 'tasks';
     if (browseOpen) {
         const visibleRows = renderActiveTab();
-        ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
+        sendSetSize(currentWidth() + WING_W, browseHeight(visibleRows));
     }
 });
 tabThoughts.addEventListener('click', () => {
@@ -477,13 +483,13 @@ tabThoughts.addEventListener('click', () => {
     activeTab = 'thoughts';
     if (browseOpen) {
         const visibleRows = renderActiveTab();
-        ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
+        sendSetSize(currentWidth() + WING_W, browseHeight(visibleRows));
     }
 });
 function closeBrowse() {
     browseOpen = false;
     browseBtn.classList.remove('active');
-    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: inputHeight() });
+    sendSetSize(currentWidth() + WING_W, inputHeight());
 }
 // ── Screenshot button ──
 screenshotBtn.addEventListener('click', async () => {
