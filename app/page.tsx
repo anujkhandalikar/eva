@@ -294,7 +294,7 @@ function StreamView({
   }, [tasks, filter, search, selectedTags]);
 
   return (
-    <div className="h-full overflow-y-auto flex flex-col">
+    <div className="h-full overflow-y-auto flex flex-col" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
       <FilterBar
         filter={filter}
         onFilterChange={onFilterChange}

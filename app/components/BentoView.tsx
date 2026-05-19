@@ -93,7 +93,7 @@ export default function BentoView({ tasks, onOpen }: BentoViewProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto pb-4">
+    <div className="h-full overflow-y-auto pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
       <div
         className="grid gap-2 sm:gap-3 grid-cols-2 sm:grid-cols-4 auto-rows-[7rem] sm:auto-rows-[9rem]"
         style={{ gridAutoFlow: 'dense' }}
