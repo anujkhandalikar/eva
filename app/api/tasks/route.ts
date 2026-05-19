@@ -120,6 +120,11 @@ export async function POST(req: Request) {
           name: 'thought/image-uploaded',
           data: { id: data.id, image_url: imageUrl },
         });
+        await supabase
+          .from('tasks')
+          .update({ status: 'captured' })
+          .eq('id', data.id)
+          .eq('status', 'pending');
       }
 
       return NextResponse.json({ task: data });
@@ -158,6 +163,11 @@ export async function POST(req: Request) {
           input: data.input,
         },
       });
+      await supabase
+        .from('tasks')
+        .update({ status: 'captured' })
+        .eq('id', data.id)
+        .eq('status', 'pending');
     }
 
     return NextResponse.json({ task: data });
