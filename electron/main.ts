@@ -26,6 +26,9 @@ const CORNER_RADIUS = 12;
 // Window width includes the pill and the two outward-turning corners
 const W = PILL_W + (CORNER_RADIUS * 2);
 const H = 68;
+// Extra window height reserved below the pill so its drop shadow can render
+// without being clipped at the window edge. Pill CSS height = 100vh - SHADOW_PAD.
+const SHADOW_PAD = 10;
 
 // Ambient mode: wide pill same width as the open pill, centered on the notch.
 // Height matches the menu-bar height which, on notched MacBooks, equals the
@@ -34,7 +37,7 @@ const H = 68;
 // H, looking like the notch extending into the full pill.
 const W_AMBIENT = W;
 function ambientH(): number {
-  return screen.getPrimaryDisplay().workArea.y;
+  return screen.getPrimaryDisplay().workArea.y + SHADOW_PAD;
 }
 
 function createWindow() {
@@ -109,7 +112,7 @@ function showOverlay(grabFocus = false) {
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   cancelResizeAnim();
   // Window stays centered (same x as ambient). Just animate height up.
-  animateResize(W, H);
+  animateResize(W, H + SHADOW_PAD);
 
   if (grabFocus) {
     // Steal focus from the foreground app so the pill input is ready to type.
@@ -233,6 +236,7 @@ type SubmitTaskPayload =
   | string
   | {
       input: string;
+      isThought?: boolean;
       image?: { buffer: ArrayBuffer | Uint8Array; type: string; name: string };
     };
 
@@ -261,7 +265,8 @@ ipcMain.on('submit-task', async (_event, payload: SubmitTaskPayload) => {
     } else {
       headers['Content-Type'] = 'application/json';
       const input = typeof payload === 'string' ? payload : payload.input;
-      body = JSON.stringify({ input });
+      const isThought = typeof payload === 'object' && payload.isThought === true;
+      body = JSON.stringify({ input, ...(isThought ? { entry_type: 'thought' } : {}) });
     }
 
     const response = await fetch('http://localhost:3000/api/tasks', {
@@ -322,7 +327,7 @@ ipcMain.on('contract-to-notch', () => {
   if (!mainWindow) return;
   cancelResizeAnim();
   // Confirm tick is shown inside the W×H pill area, then renderer asks for hide.
-  setSizeImmediate(W, H);
+  setSizeImmediate(W, H + SHADOW_PAD);
   mainWindow.webContents.send('show-confirm');
 });
 

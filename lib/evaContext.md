@@ -1,6 +1,8 @@
-# Eva — Self Context
+# Chotu — Self Context
 
-Hand-edit this file. The research prompt injects it whenever the user's input mentions "eva" (word-boundary, case-insensitive). Keep it current; stale entries here will make Eva's opinions about itself wrong.
+NOTE: This product is called **Chotu** (also referred to internally as Eva). When the user asks about "Chotu", they are asking about THIS product described below — not any external product or company with that name.
+
+Hand-edit this file. The research prompt injects it whenever the user's input mentions "chotu" or "eva". Keep it current; stale entries here will make Chotu's opinions about itself wrong.
 
 ---
 

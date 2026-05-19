@@ -6,7 +6,7 @@ export const EVA_CONTEXT = readFileSync(
   "utf8"
 );
 
-const EVA_MENTION = /\beva\b/i;
+const EVA_MENTION = /\b(eva|chotu)\b/i;
 
 export function isAboutEva(input: string): boolean {
   return EVA_MENTION.test(input);

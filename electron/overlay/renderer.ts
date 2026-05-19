@@ -53,6 +53,13 @@ const TAB_BAR_H     = 34; // tabs row padding + content
 const PANEL_EXTRA   = 20 + TAB_BAR_H; // separator + list padding + tab bar
 const MAX_H         = 360; // cap — panel scrolls beyond this
 const VISIBLE_LIMIT = 5;
+// Extra window height reserved below the pill so its drop shadow has room
+// to render. Pill CSS height = 100vh - SHADOW_PAD. Must match main.ts.
+const SHADOW_PAD    = 10;
+
+function sendSetSize(w: number, h: number): void {
+  ipcRenderer.send('set-size', { w, h: h + SHADOW_PAD });
+}
 
 let inputExpanded = false;
 
@@ -68,7 +75,7 @@ function currentWidth(): number {
 }
 
 function updateSize() {
-  ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: inputHeight() });
+  sendSetSize(currentWidth() + WING_W, inputHeight());
 }
 
 function expandInput() {
@@ -80,7 +87,7 @@ function expandInput() {
 function resetSize() {
   inputExpanded = false;
   pill.classList.remove('expanded');
-  ipcRenderer.send('set-size', { w: BASE_W + WING_W, h: BASE_H });
+  sendSetSize(BASE_W + WING_W, BASE_H);
 }
 
 let browseOpen       = false;
@@ -529,7 +536,7 @@ function openBrowse(entries: Task[]) {
   browseBtn.classList.add('active');
   storedTasks = entries;
   const visibleRows = renderActiveTab();
-  ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
+  sendSetSize(currentWidth() + WING_W, browseHeight(visibleRows));
 }
 
 tabTasks.addEventListener('click', () => {
@@ -537,7 +544,7 @@ tabTasks.addEventListener('click', () => {
   activeTab = 'tasks';
   if (browseOpen) {
     const visibleRows = renderActiveTab();
-    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
+    sendSetSize(currentWidth() + WING_W, browseHeight(visibleRows));
   }
 });
 
@@ -546,14 +553,14 @@ tabThoughts.addEventListener('click', () => {
   activeTab = 'thoughts';
   if (browseOpen) {
     const visibleRows = renderActiveTab();
-    ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: browseHeight(visibleRows) });
+    sendSetSize(currentWidth() + WING_W, browseHeight(visibleRows));
   }
 });
 
 function closeBrowse() {
   browseOpen = false;
   browseBtn.classList.remove('active');
-  ipcRenderer.send('set-size', { w: currentWidth() + WING_W, h: inputHeight() });
+  sendSetSize(currentWidth() + WING_W, inputHeight());
 }
 
 // ── Screenshot button ──
@@ -715,6 +722,24 @@ function submit() {
   if (cmd) {
     clearImageChip();
     ipcRenderer.send('clear-tasks', cmd.target);
+    return;
+  }
+
+  // /thot <text> — record thought directly, no AI processing.
+  if (raw.toLowerCase().startsWith('/thot')) {
+    const thoughtText = raw.slice(5).trim();
+    if (!thoughtText) {
+      collapseAndConfirm('Empty thought');
+      return;
+    }
+    clearImageChip();
+    spawnConfetti();
+    ipcRenderer.send('submit-task', { input: thoughtText, isThought: true });
+    if (browseOpen) { browseOpen = false; browseBtn.classList.remove('active'); }
+    pill.classList.remove('drop');
+    void pill.offsetHeight;
+    pill.classList.add('collapse');
+    setTimeout(() => ipcRenderer.send('contract-to-notch'), 110);
     return;
   }
 

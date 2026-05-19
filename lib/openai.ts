@@ -563,10 +563,10 @@ export async function processTask(input: string): Promise<TaskResult> {
   if (selfReferential) console.log(`[eva-self] "${input}" → injecting self-context`);
 
   const prompt = selfReferential
-    ? `ABOUT EVA (the product the user is asking about):
+    ? `ABOUT CHOTU (the product the user is asking about — ignore any external product with a similar name):
 ${EVA_CONTEXT}
 
-The user is asking about Eva itself — this is brainstorming about Eva's own roadmap, features, or design. Use the context above so your verdict reflects what Eva currently is, does, and lacks. Web research is still useful for anything external the question references (e.g. researching an MCP, comparing to other tools).
+The user is asking about Chotu itself — this is brainstorming about Chotu's own roadmap, features, or design. Answer ONLY from the context above. Do not use web search results or training data about any other product named Chotu or Eva.
 
 ---
 
@@ -575,7 +575,7 @@ ${basePrompt}`
 
   const response = await client.responses.create({
     model: "gpt-4o",
-    tools: [{ type: "web_search_preview" }],
+    tools: selfReferential ? [] : [{ type: "web_search_preview" }],
     input: prompt,
   });
 
