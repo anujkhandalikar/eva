@@ -32,17 +32,9 @@
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      /* Window is 10px taller than the pill so the drop shadow has room
-         to render below without being clipped at the window edge. */
-      height: calc(100vh - 10px);
+      height: 100vh;
       overflow: hidden;
       position: relative;
-      transition: box-shadow 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-
-    .pill.drop,
-    .pill.expanded {
-      box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.35);
     }
 
     /* Outward-turning (reverse-rounded) corners to blend with the top edge */
@@ -155,8 +147,7 @@
 
     /* ── Drag overlay ── */
     .pill.drag-over {
-      box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55),
-                  0 4px 14px -2px rgba(0, 0, 0, 0.35);
+      box-shadow: inset 0 0 0 2px rgba(220, 38, 38, 0.55);
     }
 
     /* ── Screenshot button ── */
@@ -450,7 +441,7 @@
     .ambient-dot {
       position: fixed;
       top: 7px;
-      right: 23px;
+      left: calc(50% + 132px);
       width: 7px;
       height: 7px;
       border-radius: 50%;
