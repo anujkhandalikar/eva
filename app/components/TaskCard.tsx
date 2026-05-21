@@ -8,6 +8,7 @@ import CalendarActionPreview from './CalendarActionPreview';
 import WhatsAppMessagePreview from './WhatsAppMessagePreview';
 import type { CalendarAction } from '@/lib/openai';
 import type { ProposedMessage } from '@/lib/whatsapp';
+import { formatTimestamp } from '@/lib/formatTimestamp';
 
 type TaskStatus = 'pending' | 'running' | 'done' | 'needs_approval' | 'failed' | 'needs_otp' | 'captured';
 
@@ -43,6 +44,7 @@ export type Task = {
   classification_confidence?: number | null;
   promoted_to_task_id?: string | null;
   image_url?: string | null;
+  result_image_urls?: string[] | null;
 };
 
 const statusDotColor: Record<TaskStatus, string> = {
@@ -79,6 +81,65 @@ function extractFirstLink(text: string | null): { label: string; url: string } |
   return { label: match[1], url: match[2] };
 }
 
+function ResultImageCarousel({ urls }: { urls: string[] }) {
+  const [index, setIndex] = useState(0);
+  const [failed, setFailed] = useState<Set<number>>(new Set());
+
+  const valid = urls.filter((_, i) => !failed.has(i));
+  if (valid.length === 0) return null;
+
+  const safeIndex = index >= valid.length ? 0 : index;
+  const current = valid[safeIndex];
+  const isSingle = valid.length === 1;
+
+  return (
+    <div className="flex flex-col gap-2 self-start" style={{ maxWidth: '100%' }}>
+      <a
+        href={current}
+        target="_blank"
+        rel="noreferrer"
+        className="block"
+      >
+        <img
+          src={current}
+          alt={`result ${safeIndex + 1}`}
+          className="rounded-lg object-cover"
+          style={{
+            maxHeight: '200px',
+            maxWidth: '100%',
+            border: '1px solid rgba(255,255,255,0.06)',
+          }}
+          onError={() => {
+            const originalIdx = urls.indexOf(current);
+            setFailed((s) => new Set(s).add(originalIdx));
+          }}
+        />
+      </a>
+      {!isSingle && (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIndex((i) => (i - 1 + valid.length) % valid.length)}
+            className="eva-micro w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}
+          >
+            ‹
+          </button>
+          <span className="eva-micro" style={{ color: 'rgba(255,255,255,0.32)' }}>
+            {safeIndex + 1} / {valid.length}
+          </span>
+          <button
+            onClick={() => setIndex((i) => (i + 1) % valid.length)}
+            className="eva-micro w-6 h-6 rounded-full flex items-center justify-center transition-colors"
+            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }}
+          >
+            ›
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 const ACTIVE_STATUSES: TaskStatus[] = ['pending', 'running', 'needs_approval', 'needs_otp'];
 
@@ -86,12 +147,7 @@ export default function TaskCard({ task }: { task: Task }) {
   const [rerunning, setRerunning] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
 
-  const date = new Date(task.created_at).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const date = formatTimestamp(task.created_at);
 
   const isCalendar = task.task_type === 'calendar';
   const isBlinkit = task.task_type === 'blinkit_order';
@@ -168,6 +224,26 @@ export default function TaskCard({ task }: { task: Task }) {
         )}
       </div>
 
+      {task.image_url && (
+        <a
+          href={task.image_url}
+          target="_blank"
+          rel="noreferrer"
+          className="block self-start"
+        >
+          <img
+            src={task.image_url}
+            alt="attached"
+            className="rounded-lg object-cover"
+            style={{
+              maxHeight: '160px',
+              maxWidth: '100%',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          />
+        </a>
+      )}
+
       {isLowConfidence && isTask && (
         <button
           onClick={() => handleReclassifyToThought(true)}
@@ -200,6 +276,10 @@ export default function TaskCard({ task }: { task: Task }) {
             </ol>
           )}
         </div>
+      )}
+
+      {task.result_image_urls && task.result_image_urls.length > 0 && (
+        <ResultImageCarousel urls={task.result_image_urls} />
       )}
 
       {task.status === 'needs_otp' && (

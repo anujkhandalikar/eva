@@ -247,7 +247,7 @@ ipcMain.on('submit-task', async (_event, payload: SubmitTaskPayload) => {
     if (typeof payload === 'object' && payload.image) {
       const form = new FormData();
       form.append('input', payload.input ?? '');
-      form.append('force_type', 'thought');
+      if (payload.isThought) form.append('force_type', 'thought');
       const ab =
         payload.image.buffer instanceof Uint8Array
           ? (payload.image.buffer.buffer.slice(

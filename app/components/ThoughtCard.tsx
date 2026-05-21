@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { Task } from './TaskCard';
+import { formatTimestamp } from '@/lib/formatTimestamp';
 
 const LOW_CONFIDENCE_THRESHOLD = 0.6;
 
@@ -20,12 +21,7 @@ export default function ThoughtCard({
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const date = new Date(task.created_at).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const date = formatTimestamp(task.created_at);
 
   const tags = task.tags ?? [];
   const confidence = task.classification_confidence;

@@ -98,34 +98,75 @@ export async function POST(req: Request) {
       const { data: publicUrlData } = supabase.storage.from(THOUGHT_BUCKET).getPublicUrl(path);
       const imageUrl = publicUrlData.publicUrl;
 
-      const needsCaption = input.length === 0;
-      const row: Record<string, unknown> = {
-        input,
-        status: needsCaption ? 'pending' : 'done',
-        requires_approval: false,
-        approved: false,
-        image_url: imageUrl,
-      };
-      if (forceType === 'thought') row.entry_type = 'thought';
+      const isThought = forceType === 'thought';
+
+      if (isThought) {
+        const needsCaption = input.length === 0;
+        const row: Record<string, unknown> = {
+          input,
+          status: needsCaption ? 'pending' : 'done',
+          requires_approval: false,
+          approved: false,
+          image_url: imageUrl,
+          entry_type: 'thought',
+        };
+
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert([row])
+          .select()
+          .single();
+        if (error) throw error;
+
+        if (needsCaption) {
+          await inngest.send({
+            name: 'thought/image-uploaded',
+            data: { id: data.id, image_url: imageUrl },
+          });
+          await supabase
+            .from('tasks')
+            .update({ status: 'captured' })
+            .eq('id', data.id)
+            .eq('status', 'pending');
+        }
+
+        return NextResponse.json({ task: data });
+      }
+
+      // Task path with attached image. Always research (vision over web).
+      // Text optional — fall back to a generic prompt if user only sent an image.
+      const taskInput = input.length > 0 ? input : 'Describe what this image shows and any relevant context.';
 
       const { data, error } = await supabase
         .from('tasks')
-        .insert([row])
+        .insert([
+          {
+            input: taskInput,
+            status: 'pending',
+            requires_approval: false,
+            approved: false,
+            image_url: imageUrl,
+            entry_type: 'task',
+            category: 'research',
+          },
+        ])
         .select()
         .single();
       if (error) throw error;
 
-      if (needsCaption) {
-        await inngest.send({
-          name: 'thought/image-uploaded',
-          data: { id: data.id, image_url: imageUrl },
-        });
-        await supabase
-          .from('tasks')
-          .update({ status: 'captured' })
-          .eq('id', data.id)
-          .eq('status', 'pending');
-      }
+      await inngest.send({
+        name: 'task/created',
+        data: {
+          id: data.id,
+          input: data.input,
+          image_url: imageUrl,
+        },
+      });
+      await supabase
+        .from('tasks')
+        .update({ status: 'captured' })
+        .eq('id', data.id)
+        .eq('status', 'pending');
 
       return NextResponse.json({ task: data });
     }

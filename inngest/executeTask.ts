@@ -33,7 +33,11 @@ export const executeTask = inngest.createFunction(
     concurrency: { limit: 3 },
   },
   async ({ event, step }) => {
-    const { id, input } = event.data;
+    const { id, input, image_url: eventImageUrl } = event.data as {
+      id: string;
+      input: string;
+      image_url?: string;
+    };
 
     // Classify first: thought (capture-only) vs task (run intent router).
     // Promoted tasks already have entry_type='task' — skip re-classification.
@@ -417,7 +421,7 @@ export const executeTask = inngest.createFunction(
     if (intent.type === "research") {
       try {
         const result = await step.run("process-with-openai", async () => {
-          return await processTask(input);
+          return await processTask(input, eventImageUrl ?? null);
         });
 
         await step.run("update-status-success", async () => {
@@ -429,6 +433,7 @@ export const executeTask = inngest.createFunction(
               result_summary: result.summary,
               result_full: result.full_result,
               requires_approval: result.requires_approval,
+              result_image_urls: result.image_urls && result.image_urls.length > 0 ? result.image_urls : null,
             })
             .eq("id", id);
           if (error) throw error;

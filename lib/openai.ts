@@ -398,6 +398,7 @@ export type TaskResult = {
   full_result: string;
   requires_approval: boolean;
   subtype?: ResearchSubtype;
+  image_urls?: string[];
 };
 
 export const RESEARCH_SUBTYPES = [
@@ -468,9 +469,11 @@ function promptForSubtype(subtype: ResearchSubtype, input: string): string {
 User's question: "${input}"
 
 Respond with ONLY valid JSON (no prose, no code fences):
-{"summary":"<markdown bullets>","full_result":"<longer findings>","requires_approval":false}
+{"summary":"<markdown bullets>","full_result":"<longer findings>","requires_approval":false,"image_urls":["https://..."]}
 
-Set requires_approval to true ONLY if the task involves a real external action (email, purchase, booking, modifying external data). For pure research, it's false.`;
+Set requires_approval to true ONLY if the task involves a real external action (email, purchase, booking, modifying external data). For pure research, it's false.
+
+image_urls: include 0–4 https image URLs surfaced during web_search_preview that visually support the answer (product photos, headshots, charts). Only real URLs you saw in search results — never fabricate. Omit or use [] if none are relevant.`;
 
   switch (subtype) {
     case "opinion":
@@ -579,7 +582,10 @@ ${NO_HEDGING}${tail}`;
   }
 }
 
-export async function processTask(input: string): Promise<TaskResult> {
+export async function processTask(
+  input: string,
+  imageUrl?: string | null,
+): Promise<TaskResult> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 
   const subtype = await classifyResearchSubtype(input);
@@ -589,6 +595,14 @@ export async function processTask(input: string): Promise<TaskResult> {
   const selfReferential = isAboutEva(input);
   if (selfReferential) console.log(`[eva-self] "${input}" → injecting self-context`);
 
+  const imagePreamble = imageUrl
+    ? `The user attached an image to this request. Treat the image as primary context — describe or use what it shows when answering. If the text query is empty or vague, the image IS the question.
+
+---
+
+`
+    : "";
+
   const prompt = selfReferential
     ? `ABOUT CHOTU (the product the user is asking about — ignore any external product with a similar name):
 ${EVA_CONTEXT}
@@ -597,13 +611,25 @@ The user is asking about Chotu itself — this is brainstorming about Chotu's ow
 
 ---
 
-${basePrompt}`
-    : basePrompt;
+${imagePreamble}${basePrompt}`
+    : `${imagePreamble}${basePrompt}`;
+
+  const requestInput = imageUrl
+    ? [
+        {
+          role: "user" as const,
+          content: [
+            { type: "input_text" as const, text: prompt },
+            { type: "input_image" as const, image_url: imageUrl, detail: "auto" as const },
+          ],
+        },
+      ]
+    : prompt;
 
   const response = await client.responses.create({
     model: "gpt-4o",
     tools: selfReferential ? [] : [{ type: "web_search_preview" }],
-    input: prompt,
+    input: requestInput,
   });
 
   const text = response.output_text;
@@ -616,5 +642,10 @@ ${basePrompt}`
   }
 
   const parsed = JSON.parse(text.slice(start, end + 1)) as TaskResult;
-  return { ...parsed, subtype };
+  const image_urls = Array.isArray(parsed.image_urls)
+    ? parsed.image_urls
+        .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+        .slice(0, 4)
+    : [];
+  return { ...parsed, image_urls, subtype };
 }
