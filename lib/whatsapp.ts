@@ -48,12 +48,12 @@ function loadContactsFromBook(includeGroups: boolean): WaContact[] {
     const cdb = new Database(CONTACTS_DB_PATH, { readonly: true, fileMustExist: true });
     try {
       const rows = cdb.prepare(`
-        SELECT their_jid AS jid,
-               COALESCE(NULLIF(full_name,''),
-                        NULLIF(first_name,''),
-                        NULLIF(push_name,''),
-                        NULLIF(business_name,''),
-                        their_jid) AS name
+        SELECT CAST(their_jid AS TEXT) AS jid,
+               CAST(COALESCE(NULLIF(full_name,''),
+                             NULLIF(first_name,''),
+                             NULLIF(push_name,''),
+                             NULLIF(business_name,''),
+                             their_jid) AS TEXT) AS name
         FROM whatsmeow_contacts
         WHERE their_jid IS NOT NULL AND their_jid != ''
       `).all() as WaContact[];
@@ -73,7 +73,7 @@ export function searchContacts(query: string, includeGroups = true): WaContact[]
   try {
     const groupFilter = includeGroups ? '' : "AND jid NOT LIKE '%@g.us'";
     const stmt = db.prepare(`
-      SELECT DISTINCT jid, name
+      SELECT DISTINCT CAST(jid AS TEXT) AS jid, CAST(name AS TEXT) AS name
       FROM chats
       WHERE (LOWER(name) LIKE LOWER(?) OR LOWER(jid) LIKE LOWER(?))
         ${groupFilter}
@@ -107,7 +107,7 @@ export function searchContacts(query: string, includeGroups = true): WaContact[]
         console.log(`[whatsapp] book-substring("${query}") → ${rows.length}`, rows.map(r => r.name));
       } else {
         const chats = db.prepare(`
-          SELECT DISTINCT jid, name FROM chats
+          SELECT DISTINCT CAST(jid AS TEXT) AS jid, CAST(name AS TEXT) AS name FROM chats
           WHERE name IS NOT NULL AND name != ''
           ${groupFilter}
         `).all() as WaContact[];
