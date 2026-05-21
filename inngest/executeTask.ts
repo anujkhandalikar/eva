@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { classifyEntry, classifyCategory, detectIntent, processTask } from "@/lib/openai";
 import { createBlinkitClient, callTool, CartItem } from "@/lib/blinkit";
 import { lookupSKU, parseQuantity } from "@/lib/skuMap";
+import { lookupGroup, expandGroup } from "@/lib/groupMap";
 import { listEvents, createEvent, createTask, listTasks } from "@/lib/googleCalendar";
 import { searchContacts, getLastMessage, listRecentMessages, resolveRecipient } from "@/lib/whatsapp";
 
@@ -417,8 +418,15 @@ export const executeTask = inngest.createFunction(
     });
 
     try {
-      // Parse items from input using gpt-4o-mini
+      // Parse items from input using gpt-4o-mini.
+      // Short-circuit: if raw input contains a group keyword, skip GPT and emit
+      // the input as a single chunk for expand-groups to handle. Deterministic
+      // path for "order vegetables" / "order usual groceries" — avoids GPT
+      // hallucinating a generic grocery list.
       const parsedItems = await step.run("parse-items", async () => {
+        if (lookupGroup(input)) {
+          return [{ name: input, quantity: parseQuantity(input) }];
+        }
         const { default: OpenAI } = await import("openai");
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const res = await openai.chat.completions.create({
@@ -443,7 +451,37 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
         }
       });
 
-      const needsMCP = parsedItems.length > 0;
+      const expandedItems = await step.run("expand-groups", async () => {
+        const out: { name: string; quantity: number }[] = [];
+        for (const item of parsedItems) {
+          const group = lookupGroup(item.name);
+          if (group) {
+            out.push(...expandGroup(group, item.quantity));
+          } else {
+            out.push(item);
+          }
+        }
+        // Dedupe-merge: sum quantities for items resolving to the same SKU.
+        // Cap per-line qty at 10 to guard against runaway scale prefixes.
+        const merged = new Map<string, { name: string; quantity: number }>();
+        const unmerged: { name: string; quantity: number }[] = [];
+        for (const item of out) {
+          const sku = lookupSKU(item.name);
+          if (sku) {
+            const existing = merged.get(sku.id);
+            if (existing) {
+              existing.quantity = Math.min(10, existing.quantity + item.quantity);
+            } else {
+              merged.set(sku.id, { ...item, quantity: Math.min(10, item.quantity) });
+            }
+          } else {
+            unmerged.push(item);
+          }
+        }
+        return [...merged.values(), ...unmerged];
+      });
+
+      const needsMCP = expandedItems.length > 0;
 
       if (needsMCP) {
         const loginStatus = await step.run("blinkit-check-login", async () => {
@@ -509,7 +547,7 @@ Use the exact item name the user said. Default quantity to 1 if not specified.`,
         const mcp = needsMCP ? await createBlinkitClient() : null;
 
         try {
-          for (const item of parsedItems) {
+          for (const item of expandedItems) {
             const sku = lookupSKU(item.name);
 
             if (sku) {
