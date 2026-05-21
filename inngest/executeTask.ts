@@ -230,6 +230,46 @@ export const executeTask = inngest.createFunction(
               .eq("id", id);
             if (error) throw error;
           });
+        } else if (action.type === "delete_range") {
+          // Preview matching events, then needs_approval. If zero events, mark done.
+          const matches = await step.run("list-events-for-delete-range", async () => {
+            return await listEvents({
+              timeMin: action.timeMin,
+              timeMax: action.timeMax,
+              query: action.query,
+            });
+          });
+
+          if (matches.length === 0) {
+            await step.run("update-status-done-delete-range-empty", async () => {
+              const { error } = await supabase
+                .from("tasks")
+                .update({
+                  task_type: "calendar",
+                  calendar_action: action,
+                  status: "done",
+                  result_summary: "No events to delete in that range.",
+                })
+                .eq("id", id);
+              if (error) throw error;
+            });
+          } else {
+            const preview = formatEventList(matches);
+            const header = `Delete ${matches.length} event${matches.length === 1 ? "" : "s"}${action.query ? ` matching "${action.query}"` : ""}:`;
+            await step.run("update-needs-approval-delete-range", async () => {
+              const { error } = await supabase
+                .from("tasks")
+                .update({
+                  task_type: "calendar",
+                  calendar_action: action,
+                  status: "needs_approval",
+                  requires_approval: true,
+                  result_summary: `${header}\n${preview}`,
+                })
+                .eq("id", id);
+              if (error) throw error;
+            });
+          }
         } else {
           // update/delete — needs approval. Single update with all fields so
           // real-time payload always includes calendar_action.

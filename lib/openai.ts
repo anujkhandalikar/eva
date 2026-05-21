@@ -42,6 +42,13 @@ export type CalendarDeleteAction = {
   eventSummary: string;
 };
 
+export type CalendarDeleteRangeAction = {
+  type: "delete_range";
+  timeMin: string;
+  timeMax: string;
+  query?: string;
+};
+
 export type CalendarTaskCreateAction = {
   type: "task_create";
   title: string;
@@ -57,6 +64,7 @@ export type CalendarAction =
   | CalendarCreateAction
   | CalendarUpdateAction
   | CalendarDeleteAction
+  | CalendarDeleteRangeAction
   | CalendarTaskCreateAction
   | CalendarTaskListAction;
 
@@ -282,8 +290,20 @@ Tie-breakers:
   return "other";
 }
 
+const WHATSAPP_SEND_PREFIX_RE =
+  /^\s*(text|msg|message|dm|ping|whatsapp|wa|tell|ask|send)\s+(?:on\s+)?([^,:]+?)\s*[,:]\s*(.+)$/i;
+
 export async function detectIntent(input: string): Promise<TaskIntent> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const prefixMatch = input.match(WHATSAPP_SEND_PREFIX_RE);
+  if (prefixMatch) {
+    const recipient_query = prefixMatch[2].trim();
+    const message_body = prefixMatch[3].trim();
+    if (recipient_query && message_body) {
+      return { type: "whatsapp_send", recipient_query, message_body };
+    }
+  }
 
   const nowDate = new Date();
   const nowISO = nowDate.toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
@@ -308,8 +328,11 @@ For CALENDAR CREATE (adding/scheduling), respond:
 For CALENDAR UPDATE (rescheduling/editing an existing event), respond:
 {"type":"calendar","action":{"type":"update","eventId":"","eventSummary":"name of event to update","summary":"new title if changing","startTime":"<ISO datetime if changing>","endTime":"<ISO datetime if changing>"}}
 
-For CALENDAR DELETE (cancelling/removing), respond:
+For CALENDAR DELETE (cancelling/removing a SINGLE named event), respond:
 {"type":"calendar","action":{"type":"delete","eventId":"","eventSummary":"name of event to delete"}}
+
+For CALENDAR DELETE RANGE (clearing ALL events in a time window — "clear my calendar today", "cancel everything tomorrow", "delete all meetings this week", "wipe Friday afternoon"), respond:
+{"type":"calendar","action":{"type":"delete_range","timeMin":"<ISO datetime>","timeMax":"<ISO datetime>","query":"optional search filter"}}
 
 TASK requests (Google Tasks — all-day todo). Trigger ONLY when the input STARTS with an explicit todo prefix: "todo", "todo:", "todo ", "task:", "add task", "add to my list", "to-do". No prefix → NEVER task_create. Even reminders without an explicit time go to calendar CREATE (not task_create).
 
@@ -339,6 +362,7 @@ Rules:
 - Default event duration: 1 hour if not specified
 - For calendar CREATE with no explicit time given ("remind me to call dad", "call venkat later"), still create the event — set startTime to today's next round hour (current hour + 1, minute 00), endTime +1 hour
 - For update/delete, set eventId to "" — Eva will search for the event by eventSummary at execution time
+- For delete_range, set timeMin/timeMax covering the requested window in IST (e.g. "today" → today 00:00 to today 23:59:59 IST). Use query only when user specifies a filter ("delete all gym events tomorrow" → query "gym"); omit otherwise.
 - For task_create, dueDate is YYYY-MM-DD (Asia/Kolkata). Omit to default to today.
 - For blinkit: quantity defaults to 1 if not specified
 - For whatsapp_send: message_body should be the natural message text, not a meta-description
@@ -352,7 +376,10 @@ Examples:
 "todo: buy milk" → task_create, title "buy milk"
 "todo buy milk" → task_create, title "buy milk"
 "add task pay rent" → task_create
-"what's on my list" → task_list`,
+"what's on my list" → task_list
+"clear all events on my calendar today" → {"type":"calendar","action":{"type":"delete_range","timeMin":"<today>T00:00:00+05:30","timeMax":"<today>T23:59:59+05:30"}}
+"cancel everything tomorrow" → {"type":"calendar","action":{"type":"delete_range","timeMin":"<tomorrow>T00:00:00+05:30","timeMax":"<tomorrow>T23:59:59+05:30"}}
+"delete all gym events this week" → {"type":"calendar","action":{"type":"delete_range","timeMin":"<weekStart>T00:00:00+05:30","timeMax":"<weekEnd>T23:59:59+05:30","query":"gym"}}`,
       },
       { role: "user", content: input },
     ],

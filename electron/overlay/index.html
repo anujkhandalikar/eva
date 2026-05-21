@@ -431,17 +431,14 @@
       pointer-events: none;
     }
 
-    /* ── Ambient status dot — fixed near notch.
-       In ambient mode: centered just below notch cutout.
-       In open mode: top-left corner of pill (notch only covers center, so
-       corners are visible without overlapping the input row content). ── */
-    /* Status dot — same position in ambient and open modes (top-right of
-       the pill, just past notch edge). x is outside notch hardware, so it's
-       always visible regardless of window height. */
+    /* ── Ambient status dot — anchored to right edge of the window so it
+       rides outward with the pill when it expands. Window is re-centered
+       on every resize by native placeInNotch, so anchoring to right (not
+       50%) is what produces motion as the pill widens. ── */
     .ambient-dot {
       position: fixed;
       top: 7px;
-      left: calc(50% + 132px);
+      right: 30px;
       width: 7px;
       height: 7px;
       border-radius: 50%;

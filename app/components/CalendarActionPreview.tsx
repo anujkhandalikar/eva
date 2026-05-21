@@ -8,6 +8,7 @@ const actionLabels: Record<CalendarAction['type'], string> = {
   create: 'Create Event',
   update: 'Update Event',
   delete: 'Delete Event',
+  delete_range: 'Clear Events',
   task_create: 'Add Task',
   task_list: 'View Tasks',
 };
@@ -17,6 +18,7 @@ const actionDotColor: Record<CalendarAction['type'], string> = {
   create: '#22c55e',
   update: '#eab308',
   delete: '#ef4444',
+  delete_range: '#ef4444',
   task_create: '#22c55e',
   task_list: '#3b82f6',
 };
@@ -111,6 +113,18 @@ export default function CalendarActionPreview({
         <div className="flex flex-col gap-1 eva-body">
           <p style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 600 }}>&ldquo;{action.eventSummary}&rdquo;</p>
           <p className="eva-micro" style={{ color: 'rgba(255,255,255,0.48)' }}>This event will be permanently removed from your calendar.</p>
+        </div>
+      )}
+
+      {action.type === 'delete_range' && (
+        <div className="flex flex-col gap-1 eva-body" style={{ color: 'rgba(255,255,255,0.78)' }}>
+          <p className="eva-num" style={{ color: 'rgba(255,255,255,0.48)' }}>
+            {formatDateTime(action.timeMin)} → {formatDateTime(action.timeMax)}
+          </p>
+          {action.query && (
+            <p style={{ color: 'rgba(255,255,255,0.48)' }}>Filter: {action.query}</p>
+          )}
+          <p className="eva-micro" style={{ color: 'rgba(255,255,255,0.48)' }}>All matching events will be permanently removed. See the task summary for the list.</p>
         </div>
       )}
 

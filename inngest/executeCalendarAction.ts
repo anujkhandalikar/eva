@@ -105,6 +105,32 @@ export const executeCalendarAction = inngest.createFunction(
           };
         }
 
+        if (calendarAction.type === "delete_range") {
+          const events = await listEvents({
+            timeMin: calendarAction.timeMin,
+            timeMax: calendarAction.timeMax,
+            query: calendarAction.query,
+          });
+          if (events.length === 0) {
+            return { eventId: null, summary: "No events to delete in that range." };
+          }
+          const failures: string[] = [];
+          for (const e of events) {
+            try {
+              await deleteEvent(e.id);
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : "unknown";
+              failures.push(`"${e.summary}" (${msg})`);
+            }
+          }
+          const deleted = events.length - failures.length;
+          const base = `Deleted ${deleted} of ${events.length} event${events.length === 1 ? "" : "s"}`;
+          if (failures.length > 0) {
+            return { eventId: null, summary: `${base}. Failed: ${failures.join(", ")}` };
+          }
+          return { eventId: null, summary: base };
+        }
+
         throw new Error(`Unexpected calendar action type: ${(calendarAction as CalendarAction).type}`);
       });
 
