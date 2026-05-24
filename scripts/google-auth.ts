@@ -12,6 +12,7 @@
  */
 
 import http from "http";
+import { exec } from "child_process";
 import { google } from "googleapis";
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -39,7 +40,6 @@ console.log("\nOpening browser for Google OAuth consent...");
 console.log("If browser doesn't open, visit:\n", authUrl, "\n");
 
 // Try to open browser
-const { exec } = await import("child_process");
 exec(`open "${authUrl}"`);
 
 // Start local server to capture callback

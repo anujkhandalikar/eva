@@ -290,15 +290,21 @@ Tie-breakers:
   return "other";
 }
 
+// Comma-only separator — colon allowed inside recipient (e.g. "Ghar:D")
 const WHATSAPP_SEND_PREFIX_RE =
-  /^\s*(text|msg|message|dm|ping|whatsapp|wa|tell|ask|send)\s+(?:on\s+)?([^,:]+?)\s*[,:]\s*(.+)$/i;
+  /^\s*(text|msg|message|dm|ping|whatsapp|wa|tell|ask|send)\s+(.+?)\s*,\s*(.+)$/i;
+
+// Strip filler between verb and actual recipient name
+// Handles "a text on X", "a message to X", bare "on X" / "to X"
+const RECIPIENT_FILLER_RE =
+  /^(?:(?:a\s+)?(?:text|msg|message|whatsapp|wa)\s+)?(?:on|to|for)\s+/i;
 
 export async function detectIntent(input: string): Promise<TaskIntent> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 
   const prefixMatch = input.match(WHATSAPP_SEND_PREFIX_RE);
   if (prefixMatch) {
-    const recipient_query = prefixMatch[2].trim();
+    const recipient_query = prefixMatch[2].trim().replace(RECIPIENT_FILLER_RE, '').trim();
     const message_body = prefixMatch[3].trim();
     if (recipient_query && message_body) {
       return { type: "whatsapp_send", recipient_query, message_body };
@@ -354,13 +360,13 @@ WHATSAPP READ requests: check WhatsApp messages, see what someone said, read a c
 Everything else:
 {"type":"research"}
 
-Routing default (no prefix, no explicit time): personal action items naming a specific person or concrete action ("call venkat", "pay rent", "pick up package", "drop laundry", "remind me to renew passport") → CALENDAR CREATE with default time (today's next round hour, 1hr). Research lookups ("find best X", "what is Y", "compare A vs B", "summarize Z") → research.
+Routing default (no prefix, no explicit time): personal action items naming a specific person or concrete action ("call venkat", "pay rent", "pick up package", "drop laundry", "remind me to renew passport") → CALENDAR CREATE with default time (today's next round hour, 30min). Research lookups ("find best X", "what is Y", "compare A vs B", "summarize Z") → research.
 
 Rules:
 - For calendar times, use full ISO 8601 format with timezone offset (e.g. 2026-05-14T14:00:00+05:30)
 - "tomorrow" means the next calendar day from current time
-- Default event duration: 1 hour if not specified
-- For calendar CREATE with no explicit time given ("remind me to call dad", "call venkat later"), still create the event — set startTime to today's next round hour (current hour + 1, minute 00), endTime +1 hour
+- Default event duration: 30 minutes if not specified
+- For calendar CREATE with no explicit time given ("remind me to call dad", "call venkat later"), still create the event — set startTime to today's next round hour (current hour + 1, minute 00), endTime +30 minutes
 - For update/delete, set eventId to "" — Eva will search for the event by eventSummary at execution time
 - For delete_range, set timeMin/timeMax covering the requested window in IST (e.g. "today" → today 00:00 to today 23:59:59 IST). Use query only when user specifies a filter ("delete all gym events tomorrow" → query "gym"); omit otherwise.
 - For task_create, dueDate is YYYY-MM-DD (Asia/Kolkata). Omit to default to today.
