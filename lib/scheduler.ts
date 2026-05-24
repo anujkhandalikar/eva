@@ -13,12 +13,15 @@ export type ScheduledTask = {
   action_type: string;
   payload: Record<string, unknown>;
   next_run_at: string | null;
+  scheduled_for: string | null;
   last_run_at: string | null;
   last_status: string | null;
   last_error: string | null;
   max_runs: number | null;
   run_count: number;
 };
+
+const RETRY_DELAY_MS = 60_000; // 1 minute
 
 const handlers: Record<string, (payload: unknown) => Promise<void>> = {
   whatsapp_send: (p) => handleWhatsappSend(p as WhatsappSendPayload),
@@ -52,7 +55,9 @@ async function dispatch(row: ScheduledTask): Promise<void> {
 
 async function processRow(row: ScheduledTask): Promise<void> {
   const now = new Date();
-  const scheduled = row.next_run_at ? new Date(row.next_run_at) : now;
+  // Original target time anchors the EOD cutoff across retries.
+  const scheduledForIso = row.scheduled_for ?? row.next_run_at;
+  const scheduledFor = scheduledForIso ? new Date(scheduledForIso) : now;
 
   // Claim: atomically null out next_run_at so concurrent tick can't grab it.
   const { data: claimed, error: claimErr } = await supabase
@@ -68,10 +73,10 @@ async function processRow(row: ScheduledTask): Promise<void> {
     return;
   }
 
-  // End-of-IST-day skip.
-  const cutoff = endOfIstDay(scheduled);
+  // End-of-IST-day skip — anchored to original scheduled_for, not the retry time.
+  const cutoff = endOfIstDay(scheduledFor);
   if (now > cutoff) {
-    await finalize(row, now, 'missed', `Past end-of-day (${cutoff.toISOString()}) for scheduled ${row.next_run_at}`);
+    await finalize(row, now, 'missed', `Past end-of-day (${cutoff.toISOString()}) for scheduled ${scheduledForIso}`);
     console.log(`[scheduler] ${row.id} MISSED (past EOD)`);
     return;
   }
@@ -86,6 +91,24 @@ async function processRow(row: ScheduledTask): Promise<void> {
     console.error(`[scheduler] ${row.id} FAILED:`, errMsg);
   }
 
+  // Retry path: failed but still within EOD window for original slot.
+  // Bump next_run_at by 1 min, keep scheduled_for + run_count untouched.
+  if (status === 'failed' && now <= cutoff) {
+    const retryAt = new Date(now.getTime() + RETRY_DELAY_MS).toISOString();
+    await supabase
+      .from('scheduled_tasks')
+      .update({
+        last_run_at: now.toISOString(),
+        last_status: 'failed',
+        last_error: errMsg,
+        next_run_at: retryAt,
+        // scheduled_for unchanged
+      })
+      .eq('id', row.id);
+    console.log(`[scheduler] ${row.id} FAILED — retrying at ${retryAt} (slot ${scheduledForIso})`);
+    return;
+  }
+
   await finalize(row, now, status, errMsg);
 }
 
@@ -98,10 +121,10 @@ async function finalize(
   const newRunCount = row.run_count + 1;
   const hitCap = row.max_runs != null && newRunCount >= row.max_runs;
 
-  const nextEnabled = row.run_once || hitCap ? false : row.enabled;
   const nextRunAt = row.run_once || hitCap || !row.cron_expr
     ? null
     : computeNextRunAt(row.cron_expr, now).toISOString();
+  const nextEnabled = row.run_once || hitCap ? false : row.enabled;
 
   await supabase
     .from('scheduled_tasks')
@@ -111,6 +134,7 @@ async function finalize(
       last_error: errMsg,
       enabled: nextEnabled,
       next_run_at: nextRunAt,
+      scheduled_for: nextRunAt,
       run_count: newRunCount,
     })
     .eq('id', row.id);

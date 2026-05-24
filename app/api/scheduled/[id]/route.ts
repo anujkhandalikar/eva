@@ -20,10 +20,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (body.cron_expr !== undefined) {
       update.cron_expr = body.cron_expr;
       if (body.cron_expr) {
-        update.next_run_at = computeNextRunAt(body.cron_expr).toISOString();
+        const next = computeNextRunAt(body.cron_expr).toISOString();
+        update.next_run_at = next;
+        update.scheduled_for = next;
       }
     }
-    if (body.next_run_at !== undefined) update.next_run_at = body.next_run_at;
+    if (body.next_run_at !== undefined) {
+      update.next_run_at = body.next_run_at;
+      update.scheduled_for = body.next_run_at;
+    }
 
     // Re-enabling a row whose next_run_at is null: recompute from cron if available
     if (body.enabled === true && update.next_run_at === undefined) {
@@ -33,7 +38,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         .eq('id', id)
         .single();
       if (existing && !existing.next_run_at && !existing.run_once && existing.cron_expr) {
-        update.next_run_at = computeNextRunAt(existing.cron_expr).toISOString();
+        const next = computeNextRunAt(existing.cron_expr).toISOString();
+        update.next_run_at = next;
+        update.scheduled_for = next;
       }
     }
 

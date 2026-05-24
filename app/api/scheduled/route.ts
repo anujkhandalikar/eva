@@ -80,6 +80,7 @@ export async function POST(req: Request) {
         run_once: body.run_once,
         cron_expr: body.run_once ? null : body.cron_expr,
         next_run_at: nextRunAt,
+        scheduled_for: nextRunAt,
         enabled: true,
         max_runs: maxRuns,
       })
