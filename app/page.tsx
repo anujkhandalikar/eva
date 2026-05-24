@@ -91,12 +91,11 @@ export default function Dashboard() {
     };
   }, []);
 
-  // On mount, if URL carries an entry deep-link, force list view.
-  // Kept as an effect (not lazy state init) so SSR and first client render
-  // agree on `view='cards'` — flipping happens post-mount.
   useEffect(() => {
-    if (readEntryHash()) {
-      setView('list');
+    const id = readEntryHash();
+    if (id) {
+      setView('cards');
+      setPinTaskId(id);
       return;
     }
     const v = readViewHash();
@@ -107,9 +106,10 @@ export default function Dashboard() {
     if (loading) return;
     const id = readEntryHash();
     if (!id) return;
-    const el = document.getElementById(`entry-${id}`);
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (view === 'list') {
+      const el = document.getElementById(`entry-${id}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     setHighlightedId(id);
     const t = setTimeout(() => setHighlightedId(null), 2200);
     return () => clearTimeout(t);
@@ -119,10 +119,8 @@ export default function Dashboard() {
     function onHashChange() {
       const id = readEntryHash();
       if (id) {
-        setView('list');
-        const el = document.getElementById(`entry-${id}`);
-        if (!el) return;
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setView('cards');
+        setPinTaskId(id);
         setHighlightedId(id);
         setTimeout(() => setHighlightedId(null), 2200);
         return;
@@ -207,6 +205,7 @@ export default function Dashboard() {
               tasks={tasks}
               onDeleteTask={handleDeleteTask}
               pinTaskId={pinTaskId}
+              highlightTaskId={highlightedId}
             />
           ) : view === 'bento' ? (
             <BentoView

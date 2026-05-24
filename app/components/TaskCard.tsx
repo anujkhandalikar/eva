@@ -266,14 +266,23 @@ export default function TaskCard({ task }: { task: Task }) {
           {task.error_reason ? (
             <span style={{ color: '#ef4444' }}>Error: {task.error_reason}</span>
           ) : (
-            <ol className="flex flex-col gap-2">
-              {(task.result_summary ?? '').split('\n').filter(line => line.trim()).map((line, i) => (
-                <li key={i} className="flex gap-2">
-                  <span className="shrink-0 eva-num" style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 500 }}>{i + 1}.</span>
-                  <span>{stripLinks(line.replace(/^[-–—]\s*/, ''))}</span>
-                </li>
-              ))}
-            </ol>
+            (() => {
+              const lines = (task.result_summary ?? '')
+                .split('\n')
+                .map(line => stripLinks(line.replace(/^[-–—*·]\s*/, '').trim()))
+                .filter(Boolean);
+              if (lines.length <= 1) return <p>{lines[0] ?? ''}</p>;
+              return (
+                <ul className="flex flex-col gap-2">
+                  {lines.map((line, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span aria-hidden className="shrink-0" style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            })()
           )}
         </div>
       )}

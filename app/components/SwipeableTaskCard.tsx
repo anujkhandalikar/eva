@@ -8,12 +8,14 @@ import BlinkitCartPreview from './BlinkitCartPreview';
 import CalendarActionPreview from './CalendarActionPreview';
 import WhatsAppMessagePreview from './WhatsAppMessagePreview';
 import OtpInput from './OtpInput';
+import { formatTimestamp } from '@/lib/formatTimestamp';
 
 interface SwipeableTaskCardProps {
   task: Task;
   onDelete: (id: string) => void;
   onKeep: (id: string) => void;
   index: number;
+  isHighlighted?: boolean;
 }
 
 const statusDotColor: Record<Task['status'], string> = {
@@ -50,7 +52,7 @@ function extractFirstLink(text: string | null): { label: string; url: string } |
   return { label: match[1], url: match[2] };
 }
 
-export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: SwipeableTaskCardProps) {
+export default function SwipeableTaskCard({ task, onDelete, onKeep, index, isHighlighted }: SwipeableTaskCardProps) {
   const [exitX, setExitX] = useState<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
@@ -83,7 +85,10 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
     }
   };
 
-  const resultLines = (task.result_summary ?? '').split('\n').filter(line => line.trim());
+  const resultLines = (task.result_summary ?? '')
+    .split('\n')
+    .map(line => stripLinks(line.replace(/^[-–—*·]\s*/, '').trim()))
+    .filter(Boolean);
   const firstLink =
     extractFirstLink(task.result_summary) ?? extractFirstLink(task.result_full);
 
@@ -112,10 +117,13 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
       className="cursor-grab active:cursor-grabbing"
     >
       <div
-        className="rounded-2xl w-full h-full flex flex-col relative overflow-hidden"
+        className="rounded-2xl w-full h-full flex flex-col relative overflow-hidden transition-shadow"
         style={{
           background: '#111111',
           border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: isHighlighted
+            ? '0 0 0 2px rgba(220,38,38,0.45), 0 0 24px rgba(220,38,38,0.25)'
+            : 'none',
         }}
       >
         {/* Delete overlay */}
@@ -141,8 +149,11 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
         {/* Card content */}
         <div className="flex flex-col h-full z-10 relative p-6 gap-4">
 
-          {task.status !== 'done' && (
-            <div className="flex justify-end shrink-0">
+          <div className="flex justify-between items-center shrink-0">
+            <span className="eva-meta" style={{ color: 'rgba(255,255,255,0.32)' }}>
+              {formatTimestamp(task.created_at)}
+            </span>
+            {task.status !== 'done' && (
               <div className="flex items-center gap-1.5">
                 <div
                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${isRunning ? 'animate-pulse' : ''}`}
@@ -155,8 +166,8 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
                   {statusLabels[task.status]}
                 </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {task.image_url && isThought && (
             <a
@@ -194,38 +205,55 @@ export default function SwipeableTaskCard({ task, onDelete, onKeep, index }: Swi
             </a>
           )}
 
-          <p
-            className="eva-display shrink-0"
-            style={{ color: 'rgba(255,255,255,0.94)' }}
-          >
-            {task.input || (isThought && task.image_url && task.status === 'pending' ? 'Eva is looking at this…' : task.input)}
-          </p>
+          {isThought && !task.image_url ? (
+            <div className="flex-1 min-h-0 flex items-center justify-center">
+              <p
+                className="eva-display text-left"
+                style={{ color: 'rgba(255,255,255,0.94)', maxWidth: '32rem' }}
+              >
+                {task.input}
+              </p>
+            </div>
+          ) : (
+            <>
+              <p
+                className="eva-display shrink-0"
+                style={{ color: 'rgba(255,255,255,0.94)' }}
+              >
+                {task.input || (isThought && task.image_url && task.status === 'pending' ? 'Eva is looking at this…' : task.input)}
+              </p>
 
-          <div
-            ref={resultsWrapperRef}
-            className={`flex-1 min-h-0 ${expanded ? 'overflow-y-auto' : 'overflow-hidden'}`}
-          >
-            {(task.result_summary || task.error_reason) ? (
-              <div className="eva-body" style={{ color: 'rgba(255,255,255,0.58)' }}>
-                {task.error_reason ? (
-                  <span style={{ color: '#ef4444', fontWeight: 500 }}>Error: {task.error_reason}</span>
-                ) : (
-                  <ol className="flex flex-col gap-2.5">
-                    {resultLines.map((line, i) => (
-                      <li key={i} className="flex gap-2">
-                        <span className="shrink-0 eva-num" style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 500 }}>{i + 1}.</span>
-                        <span>{stripLinks(line.replace(/^[-–—]\s*/, ''))}</span>
-                      </li>
-                    ))}
-                  </ol>
+              <div
+                ref={resultsWrapperRef}
+                className={`flex-1 min-h-0 ${expanded ? 'overflow-y-auto' : 'overflow-hidden'}`}
+              >
+                {(task.result_summary || task.error_reason) ? (
+                  <div className="eva-body" style={{ color: 'rgba(255,255,255,0.58)' }}>
+                    {task.error_reason ? (
+                      <span style={{ color: '#ef4444', fontWeight: 500 }}>Error: {task.error_reason}</span>
+                    ) : (
+                      resultLines.length <= 1 ? (
+                        <p>{resultLines[0] ?? ''}</p>
+                      ) : (
+                        <ul className="flex flex-col gap-2.5">
+                          {resultLines.map((line, i) => (
+                            <li key={i} className="flex gap-2">
+                              <span aria-hidden className="shrink-0" style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                              <span>{line}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )
+                    )}
+                  </div>
+                ) : isThought ? null : (
+                  <div className="h-full flex items-center justify-center eva-body italic" style={{ color: 'rgba(255,255,255,0.24)' }}>
+                    {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
+                  </div>
                 )}
               </div>
-            ) : isThought ? null : (
-              <div className="h-full flex items-center justify-center eva-body italic" style={{ color: 'rgba(255,255,255,0.24)' }}>
-                {task.status === 'running' ? 'Processing task...' : 'No result yet.'}
-              </div>
-            )}
-          </div>
+            </>
+          )}
 
           {overflows && (
             <button

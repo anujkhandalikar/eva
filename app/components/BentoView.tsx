@@ -26,18 +26,15 @@ const STATUS_BORDER: Record<string, string | null> = {
   done: null,
 };
 
-// Tile fill encodes task category. Stable: same category = same color forever.
-// Red/orange/amber avoided — reserved for status borders + stream highlight.
-// Missing category (thoughts, old rows, "other") → graphite neutral.
+// Tile fill encodes intent bucket. 3-color schema:
+//   Know (research, learning) → emerald
+//   Do (any other task)       → violet  (default for entry_type=task)
+//   Neutral (thoughts)        → graphite
+// Red/orange/amber reserved for status borders + stream highlight.
 const GRAPHITE = '#141414';
-const CATEGORY_FILL: Record<string, string> = {
-  research: '#5A3FB8', // violet
-  action: '#5A3FB8',   // violet (same as research)
-  personal: '#2E8056', // emerald
-  work: '#7B3FA0',     // plum
-  learning: '#7B3FA0', // plum (same as work)
-  other: GRAPHITE,
-};
+const VIOLET = '#5A3FB8';
+const EMERALD = '#2E8056';
+const KNOW_CATEGORIES = new Set(['research', 'learning']);
 
 function hashId(id: string): number {
   let h = 2166136261;
@@ -50,9 +47,15 @@ function hashId(id: string): number {
 
 function pickFill(task: Task): string {
   if (task.image_url) return '#000';
+  return pickCategoryColor(task);
+}
+
+// Category color independent of image — used to ring image tiles so the
+// category bucket survives the photo override.
+function pickCategoryColor(task: Task): string {
   if (task.entry_type === 'thought') return GRAPHITE;
-  if (!task.category) return GRAPHITE;
-  return CATEGORY_FILL[task.category] ?? GRAPHITE;
+  if (task.category && KNOW_CATEGORIES.has(task.category)) return EMERALD;
+  return VIOLET;
 }
 
 function pickSize(task: Task): TileSize {
@@ -123,8 +126,11 @@ function BentoTile({ task, size, onOpen }: TileProps) {
   const isThought = task.entry_type === 'thought';
   const fill = pickFill(task);
   const isColored = !hasImage && fill !== GRAPHITE;
+  const categoryColor = pickCategoryColor(task);
+  const imageRing = hasImage && categoryColor !== GRAPHITE ? categoryColor : null;
   const borderColor =
-    STATUS_BORDER[task.status] ?? (isColored ? COLORED_BORDER : DEFAULT_BORDER);
+    STATUS_BORDER[task.status] ??
+    (imageRing ?? (isColored ? COLORED_BORDER : DEFAULT_BORDER));
 
   const date = new Date(task.created_at).toLocaleString([], {
     month: 'short',
