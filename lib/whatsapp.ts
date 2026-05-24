@@ -220,11 +220,21 @@ export function listRecentMessages(jid: string, limit = 10): WaMessage[] {
   }
 }
 
-export async function sendMessage(recipient: string, message: string): Promise<void> {
+export async function sendMessage(
+  recipient: string,
+  message: string,
+  mediaPath?: string,
+): Promise<void> {
+  const body: { recipient: string; message: string; media_path?: string } = {
+    recipient,
+    message,
+  };
+  if (mediaPath) body.media_path = mediaPath;
+
   const res = await fetch(`${BRIDGE_URL}/api/send`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ recipient, message }),
+    body: JSON.stringify(body),
   });
 
   const data = await res.json() as { success: boolean; message: string };

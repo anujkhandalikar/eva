@@ -41,6 +41,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# scheduler media (user-dropped images, not in repo)
+/scheduled-media/
+
 # vercel
 .vercel
 
