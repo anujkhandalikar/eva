@@ -33,7 +33,11 @@ export const executeTask = inngest.createFunction(
     concurrency: { limit: 3 },
   },
   async ({ event, step }) => {
-    const { id, input } = event.data;
+    const { id, input, image_url: eventImageUrl } = event.data as {
+      id: string;
+      input: string;
+      image_url?: string;
+    };
 
     // Classify first: thought (capture-only) vs task (run intent router).
     // Promoted tasks already have entry_type='task' — skip re-classification.
@@ -230,6 +234,46 @@ export const executeTask = inngest.createFunction(
               .eq("id", id);
             if (error) throw error;
           });
+        } else if (action.type === "delete_range") {
+          // Preview matching events, then needs_approval. If zero events, mark done.
+          const matches = await step.run("list-events-for-delete-range", async () => {
+            return await listEvents({
+              timeMin: action.timeMin,
+              timeMax: action.timeMax,
+              query: action.query,
+            });
+          });
+
+          if (matches.length === 0) {
+            await step.run("update-status-done-delete-range-empty", async () => {
+              const { error } = await supabase
+                .from("tasks")
+                .update({
+                  task_type: "calendar",
+                  calendar_action: action,
+                  status: "done",
+                  result_summary: "No events to delete in that range.",
+                })
+                .eq("id", id);
+              if (error) throw error;
+            });
+          } else {
+            const preview = formatEventList(matches);
+            const header = `Delete ${matches.length} event${matches.length === 1 ? "" : "s"}${action.query ? ` matching "${action.query}"` : ""}:`;
+            await step.run("update-needs-approval-delete-range", async () => {
+              const { error } = await supabase
+                .from("tasks")
+                .update({
+                  task_type: "calendar",
+                  calendar_action: action,
+                  status: "needs_approval",
+                  requires_approval: true,
+                  result_summary: `${header}\n${preview}`,
+                })
+                .eq("id", id);
+              if (error) throw error;
+            });
+          }
         } else {
           // update/delete — needs approval. Single update with all fields so
           // real-time payload always includes calendar_action.
@@ -377,7 +421,7 @@ export const executeTask = inngest.createFunction(
     if (intent.type === "research") {
       try {
         const result = await step.run("process-with-openai", async () => {
-          return await processTask(input);
+          return await processTask(input, eventImageUrl ?? null);
         });
 
         await step.run("update-status-success", async () => {
@@ -389,6 +433,7 @@ export const executeTask = inngest.createFunction(
               result_summary: result.summary,
               result_full: result.full_result,
               requires_approval: result.requires_approval,
+              result_image_urls: result.image_urls && result.image_urls.length > 0 ? result.image_urls : null,
             })
             .eq("id", id);
           if (error) throw error;

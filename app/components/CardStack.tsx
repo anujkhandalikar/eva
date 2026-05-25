@@ -11,6 +11,7 @@ interface CardStackProps {
   tasks: Task[];
   onDeleteTask: (id: string) => void;
   pinTaskId?: string | null;
+  highlightTaskId?: string | null;
 }
 
 const ANGLES = [
@@ -30,7 +31,7 @@ const ANGLES = [
   },
 ];
 
-export default function CardStack({ tasks, onDeleteTask, pinTaskId }: CardStackProps) {
+export default function CardStack({ tasks, onDeleteTask, pinTaskId, highlightTaskId }: CardStackProps) {
   const [localQueue, setLocalQueue] = useState<Task[]>([]);
   const [swipeCount, setSwipeCount] = useState(0);
   const [rerunning, setRerunning] = useState(false);
@@ -213,6 +214,7 @@ export default function CardStack({ tasks, onDeleteTask, pinTaskId }: CardStackP
                 index={index}
                 onDelete={handleDelete}
                 onKeep={handleKeep}
+                isHighlighted={index === 0 && highlightTaskId === task.id}
               />
             )).reverse()}
           </AnimatePresence>

@@ -16,6 +16,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         approved: false,
         task_type: 'research',
         proposed_cart: null,
+        result_image_urls: null,
       })
       .eq('id', id)
       .select()
@@ -28,6 +29,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       data: {
         id: data.id,
         input: data.input,
+        ...(data.image_url ? { image_url: data.image_url } : {}),
       },
     });
 

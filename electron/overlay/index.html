@@ -301,12 +301,13 @@
       flex-shrink: 0;
     }
 
-    .status-dot.pending        { background: rgba(255,255,255,0.2); }
-    .status-dot.running        { background: rgba(255,255,255,0.5); animation: dotPulse 1s ease-in-out infinite; }
+    .status-dot.pending        { background: rgba(255,255,255,0.55); }
+    .status-dot.running        { background: #eab308; }
     .status-dot.done           { background: #22c55e; }
-    .status-dot.needs_approval { background: #eab308; }
+    .status-dot.needs_approval { background: #f97316; }
+    .status-dot.needs_otp      { background: #f97316; }
     .status-dot.failed         { background: #ef4444; }
-    .status-dot.captured       { background: rgba(255,255,255,0.2); }
+    .status-dot.captured       { background: rgba(255,255,255,0.55); }
 
     /* ── Thought row — no dot, slight left indent ── */
     .thought-row {
@@ -342,11 +343,6 @@
       color: rgba(255,255,255,0.22);
       text-align: center;
       letter-spacing: -0.01em;
-    }
-
-    @keyframes dotPulse {
-      0%, 100% { opacity: 1; }
-      50%      { opacity: 0.2; }
     }
 
     .task-name {
@@ -431,17 +427,14 @@
       pointer-events: none;
     }
 
-    /* ── Ambient status dot — fixed near notch.
-       In ambient mode: centered just below notch cutout.
-       In open mode: top-left corner of pill (notch only covers center, so
-       corners are visible without overlapping the input row content). ── */
-    /* Status dot — same position in ambient and open modes (top-right of
-       the pill, just past notch edge). x is outside notch hardware, so it's
-       always visible regardless of window height. */
+    /* ── Ambient status dot — anchored to right edge of the window so it
+       rides outward with the pill when it expands. Window is re-centered
+       on every resize by native placeInNotch, so anchoring to right (not
+       50%) is what produces motion as the pill widens. ── */
     .ambient-dot {
       position: fixed;
       top: 7px;
-      left: calc(50% + 132px);
+      right: 30px;
       width: 7px;
       height: 7px;
       border-radius: 50%;

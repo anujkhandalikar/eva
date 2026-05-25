@@ -120,6 +120,14 @@ export function searchContacts(query: string, includeGroups = true): WaContact[]
       }
     }
 
+    // Always re-rank results by relevance to query (prevents alphabetical mis-picks)
+    if (rows.length > 1) {
+      const ranked = fuzzyRank(query, rows, c => c.name);
+      if (ranked.length > 0) {
+        rows = ranked.map(m => m.item);
+      }
+    }
+
     console.log(`[whatsapp] searchContacts("${query}") → ${rows.length} results`, rows.map(r => r.name));
     return rows;
   } finally {
@@ -169,8 +177,10 @@ export function resolveRecipient(query: string): ResolvedRecipient | null {
     // substring (e.g. alias "chai" → no 1:1 "Chai" chat → "GrabChai" group).
     throw new Error(`Alias "${query}" maps to "${alias.realName}" but no ${alias.isGroup ? 'group' : 'contact'} with that name was found in WhatsApp. Check that you have a chat with "${alias.realName}" or update the alias in lib/aliases.ts.`);
   }
+  // searchContacts already fuzzy-ranks results — [0] is best match
   const contacts = searchContacts(query);
   if (contacts.length === 0) return null;
+  console.log(`[whatsapp] resolveRecipient("${query}") → best match: ${contacts[0].name} (of ${contacts.length})`);
   return { jid: contacts[0].jid, name: contacts[0].name };
 }
 
@@ -210,11 +220,21 @@ export function listRecentMessages(jid: string, limit = 10): WaMessage[] {
   }
 }
 
-export async function sendMessage(recipient: string, message: string): Promise<void> {
+export async function sendMessage(
+  recipient: string,
+  message: string,
+  mediaPath?: string,
+): Promise<void> {
+  const body: { recipient: string; message: string; media_path?: string } = {
+    recipient,
+    message,
+  };
+  if (mediaPath) body.media_path = mediaPath;
+
   const res = await fetch(`${BRIDGE_URL}/api/send`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ recipient, message }),
+    body: JSON.stringify(body),
   });
 
   const data = await res.json() as { success: boolean; message: string };

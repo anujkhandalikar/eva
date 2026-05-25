@@ -42,6 +42,13 @@ export type CalendarDeleteAction = {
   eventSummary: string;
 };
 
+export type CalendarDeleteRangeAction = {
+  type: "delete_range";
+  timeMin: string;
+  timeMax: string;
+  query?: string;
+};
+
 export type CalendarTaskCreateAction = {
   type: "task_create";
   title: string;
@@ -57,6 +64,7 @@ export type CalendarAction =
   | CalendarCreateAction
   | CalendarUpdateAction
   | CalendarDeleteAction
+  | CalendarDeleteRangeAction
   | CalendarTaskCreateAction
   | CalendarTaskListAction;
 
@@ -282,8 +290,26 @@ Tie-breakers:
   return "other";
 }
 
+// Comma-only separator — colon allowed inside recipient (e.g. "Ghar:D")
+const WHATSAPP_SEND_PREFIX_RE =
+  /^\s*(text|msg|message|dm|ping|whatsapp|wa|tell|ask|send)\s+(.+?)\s*,\s*(.+)$/i;
+
+// Strip filler between verb and actual recipient name
+// Handles "a text on X", "a message to X", bare "on X" / "to X"
+const RECIPIENT_FILLER_RE =
+  /^(?:(?:a\s+)?(?:text|msg|message|whatsapp|wa)\s+)?(?:on|to|for)\s+/i;
+
 export async function detectIntent(input: string): Promise<TaskIntent> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const prefixMatch = input.match(WHATSAPP_SEND_PREFIX_RE);
+  if (prefixMatch) {
+    const recipient_query = prefixMatch[2].trim().replace(RECIPIENT_FILLER_RE, '').trim();
+    const message_body = prefixMatch[3].trim();
+    if (recipient_query && message_body) {
+      return { type: "whatsapp_send", recipient_query, message_body };
+    }
+  }
 
   const nowDate = new Date();
   const nowISO = nowDate.toLocaleString("sv-SE", { timeZone: "Asia/Kolkata" }).replace(" ", "T") + "+05:30";
@@ -308,8 +334,11 @@ For CALENDAR CREATE (adding/scheduling), respond:
 For CALENDAR UPDATE (rescheduling/editing an existing event), respond:
 {"type":"calendar","action":{"type":"update","eventId":"","eventSummary":"name of event to update","summary":"new title if changing","startTime":"<ISO datetime if changing>","endTime":"<ISO datetime if changing>"}}
 
-For CALENDAR DELETE (cancelling/removing), respond:
+For CALENDAR DELETE (cancelling/removing a SINGLE named event), respond:
 {"type":"calendar","action":{"type":"delete","eventId":"","eventSummary":"name of event to delete"}}
+
+For CALENDAR DELETE RANGE (clearing ALL events in a time window — "clear my calendar today", "cancel everything tomorrow", "delete all meetings this week", "wipe Friday afternoon"), respond:
+{"type":"calendar","action":{"type":"delete_range","timeMin":"<ISO datetime>","timeMax":"<ISO datetime>","query":"optional search filter"}}
 
 TASK requests (Google Tasks — all-day todo). Trigger ONLY when the input STARTS with an explicit todo prefix: "todo", "todo:", "todo ", "task:", "add task", "add to my list", "to-do". No prefix → NEVER task_create. Even reminders without an explicit time go to calendar CREATE (not task_create).
 
@@ -331,14 +360,15 @@ WHATSAPP READ requests: check WhatsApp messages, see what someone said, read a c
 Everything else:
 {"type":"research"}
 
-Routing default (no prefix, no explicit time): personal action items naming a specific person or concrete action ("call venkat", "pay rent", "pick up package", "drop laundry", "remind me to renew passport") → CALENDAR CREATE with default time (today's next round hour, 1hr). Research lookups ("find best X", "what is Y", "compare A vs B", "summarize Z") → research.
+Routing default (no prefix, no explicit time): personal action items naming a specific person or concrete action ("call venkat", "pay rent", "pick up package", "drop laundry", "remind me to renew passport") → CALENDAR CREATE with default time (today's next round hour, 30min). Research lookups ("find best X", "what is Y", "compare A vs B", "summarize Z") → research.
 
 Rules:
 - For calendar times, use full ISO 8601 format with timezone offset (e.g. 2026-05-14T14:00:00+05:30)
 - "tomorrow" means the next calendar day from current time
-- Default event duration: 1 hour if not specified
-- For calendar CREATE with no explicit time given ("remind me to call dad", "call venkat later"), still create the event — set startTime to today's next round hour (current hour + 1, minute 00), endTime +1 hour
+- Default event duration: 30 minutes if not specified
+- For calendar CREATE with no explicit time given ("remind me to call dad", "call venkat later"), still create the event — set startTime to today's next round hour (current hour + 1, minute 00), endTime +30 minutes
 - For update/delete, set eventId to "" — Eva will search for the event by eventSummary at execution time
+- For delete_range, set timeMin/timeMax covering the requested window in IST (e.g. "today" → today 00:00 to today 23:59:59 IST). Use query only when user specifies a filter ("delete all gym events tomorrow" → query "gym"); omit otherwise.
 - For task_create, dueDate is YYYY-MM-DD (Asia/Kolkata). Omit to default to today.
 - For blinkit: quantity defaults to 1 if not specified
 - For whatsapp_send: message_body should be the natural message text, not a meta-description
@@ -352,7 +382,10 @@ Examples:
 "todo: buy milk" → task_create, title "buy milk"
 "todo buy milk" → task_create, title "buy milk"
 "add task pay rent" → task_create
-"what's on my list" → task_list`,
+"what's on my list" → task_list
+"clear all events on my calendar today" → {"type":"calendar","action":{"type":"delete_range","timeMin":"<today>T00:00:00+05:30","timeMax":"<today>T23:59:59+05:30"}}
+"cancel everything tomorrow" → {"type":"calendar","action":{"type":"delete_range","timeMin":"<tomorrow>T00:00:00+05:30","timeMax":"<tomorrow>T23:59:59+05:30"}}
+"delete all gym events this week" → {"type":"calendar","action":{"type":"delete_range","timeMin":"<weekStart>T00:00:00+05:30","timeMax":"<weekEnd>T23:59:59+05:30","query":"gym"}}`,
       },
       { role: "user", content: input },
     ],
@@ -371,6 +404,7 @@ export type TaskResult = {
   full_result: string;
   requires_approval: boolean;
   subtype?: ResearchSubtype;
+  image_urls?: string[];
 };
 
 export const RESEARCH_SUBTYPES = [
@@ -441,9 +475,11 @@ function promptForSubtype(subtype: ResearchSubtype, input: string): string {
 User's question: "${input}"
 
 Respond with ONLY valid JSON (no prose, no code fences):
-{"summary":"<markdown bullets>","full_result":"<longer findings>","requires_approval":false}
+{"summary":"<markdown bullets>","full_result":"<longer findings>","requires_approval":false,"image_urls":["https://..."]}
 
-Set requires_approval to true ONLY if the task involves a real external action (email, purchase, booking, modifying external data). For pure research, it's false.`;
+Set requires_approval to true ONLY if the task involves a real external action (email, purchase, booking, modifying external data). For pure research, it's false.
+
+image_urls: include 0–4 https image URLs surfaced during web_search_preview that visually support the answer (product photos, headshots, charts). Only real URLs you saw in search results — never fabricate. Omit or use [] if none are relevant.`;
 
   switch (subtype) {
     case "opinion":
@@ -552,7 +588,10 @@ ${NO_HEDGING}${tail}`;
   }
 }
 
-export async function processTask(input: string): Promise<TaskResult> {
+export async function processTask(
+  input: string,
+  imageUrl?: string | null,
+): Promise<TaskResult> {
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
 
   const subtype = await classifyResearchSubtype(input);
@@ -562,6 +601,14 @@ export async function processTask(input: string): Promise<TaskResult> {
   const selfReferential = isAboutEva(input);
   if (selfReferential) console.log(`[eva-self] "${input}" → injecting self-context`);
 
+  const imagePreamble = imageUrl
+    ? `The user attached an image to this request. Treat the image as primary context — describe or use what it shows when answering. If the text query is empty or vague, the image IS the question.
+
+---
+
+`
+    : "";
+
   const prompt = selfReferential
     ? `ABOUT CHOTU (the product the user is asking about — ignore any external product with a similar name):
 ${EVA_CONTEXT}
@@ -570,13 +617,25 @@ The user is asking about Chotu itself — this is brainstorming about Chotu's ow
 
 ---
 
-${basePrompt}`
-    : basePrompt;
+${imagePreamble}${basePrompt}`
+    : `${imagePreamble}${basePrompt}`;
+
+  const requestInput = imageUrl
+    ? [
+        {
+          role: "user" as const,
+          content: [
+            { type: "input_text" as const, text: prompt },
+            { type: "input_image" as const, image_url: imageUrl, detail: "auto" as const },
+          ],
+        },
+      ]
+    : prompt;
 
   const response = await client.responses.create({
     model: "gpt-4o",
     tools: selfReferential ? [] : [{ type: "web_search_preview" }],
-    input: prompt,
+    input: requestInput,
   });
 
   const text = response.output_text;
@@ -589,5 +648,10 @@ ${basePrompt}`
   }
 
   const parsed = JSON.parse(text.slice(start, end + 1)) as TaskResult;
-  return { ...parsed, subtype };
+  const image_urls = Array.isArray(parsed.image_urls)
+    ? parsed.image_urls
+        .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+        .slice(0, 4)
+    : [];
+  return { ...parsed, image_urls, subtype };
 }
