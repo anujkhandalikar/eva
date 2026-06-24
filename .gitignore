@@ -44,6 +44,10 @@ yarn-error.log*
 # scheduler media (user-dropped images, not in repo)
 /scheduled-media/
 
+# local db backups + scratch (kept on disk, not in repo)
+/store/bak/
+/test-cron.ts
+
 # vercel
 .vercel
 
