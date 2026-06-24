@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { EVA_CONTEXT, isAboutEva } from "./evaContext";
+import { applyResolvedDate } from "./relativeDate";
 
 const apiKey = process.env.OPENAI_API_KEY;
 
@@ -393,7 +394,24 @@ Examples:
 
   const text = response.choices[0]?.message?.content ?? '{"type":"research"}';
   try {
-    return JSON.parse(text) as TaskIntent;
+    const intent = JSON.parse(text) as TaskIntent;
+    // The LLM is unreliable at relative-date arithmetic. When the raw input
+    // carries a relative phrase ("this sunday", "next friday", "in 3 days"),
+    // override the LLM's calendar DATE deterministically, keeping its
+    // time-of-day. See lib/relativeDate.ts.
+    if (intent.type === "calendar") {
+      const action = intent.action;
+      if (action.type === "create") {
+        const fixed = applyResolvedDate(input, action.startTime, action.endTime, nowDate);
+        action.startTime = fixed.startTime;
+        if (fixed.endTime !== undefined) action.endTime = fixed.endTime;
+      } else if (action.type === "update" && action.startTime) {
+        const fixed = applyResolvedDate(input, action.startTime, action.endTime, nowDate);
+        action.startTime = fixed.startTime;
+        if (fixed.endTime !== undefined) action.endTime = fixed.endTime;
+      }
+    }
+    return intent;
   } catch {
     return { type: "research" };
   }
