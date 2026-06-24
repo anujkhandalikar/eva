@@ -26,11 +26,20 @@ export type WaMessage = {
   jid: string;
 };
 
+export type ContactCandidate = {
+  jid: string;
+  name: string;
+};
+
 export type ProposedMessage = {
   recipient: string;
   recipient_name: string;
   body: string;
   alias?: string;
+  // Alternative matches surfaced when the recipient match is uncertain, so the
+  // user can pick the right contact on the approval card instead of the task
+  // dying on a wrong/no match.
+  candidates?: ContactCandidate[];
 };
 
 export type ResolvedRecipient = {

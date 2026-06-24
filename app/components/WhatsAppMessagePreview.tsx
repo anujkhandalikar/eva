@@ -13,11 +13,28 @@ export default function WhatsAppMessagePreview({
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [cancelled, setCancelled] = useState(false);
+  // Currently selected recipient — defaults to the proposed match, switchable
+  // to any surfaced candidate.
+  const [selected, setSelected] = useState({
+    jid: message.recipient,
+    name: message.recipient_name,
+  });
+
+  const candidates = message.candidates ?? [];
+  // Full option list = proposed match + alternatives (proposed first, de-duped).
+  const options = [
+    { jid: message.recipient, name: message.recipient_name },
+    ...candidates.filter((c) => c.jid !== message.recipient),
+  ];
 
   async function handleSend() {
     setSending(true);
     try {
-      const res = await fetch(`/api/tasks/${taskId}/whatsapp-approve`, { method: 'POST' });
+      const res = await fetch(`/api/tasks/${taskId}/whatsapp-approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient: selected.jid, recipient_name: selected.name }),
+      });
       if (res.ok) setSent(true);
     } finally {
       setSending(false);
@@ -32,7 +49,7 @@ export default function WhatsAppMessagePreview({
   if (sent) {
     return (
       <div className="eva-micro" style={{ color: '#22c55e', fontWeight: 600 }}>
-        Message sent to {message.recipient_name}
+        Message sent to {selected.name}
       </div>
     );
   }
@@ -53,9 +70,9 @@ export default function WhatsAppMessagePreview({
       <div className="flex items-center gap-2">
         <span className="text-lg">💬</span>
         <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 700, letterSpacing: '-0.012em' }}>
-          {message.recipient_name}
+          {selected.name}
         </span>
-        {message.alias && (
+        {message.alias && selected.jid === message.recipient && (
           <span
             className="eva-tag rounded px-1.5 py-0.5"
             style={{ color: 'rgba(255,255,255,0.52)', background: 'rgba(255,255,255,0.06)', letterSpacing: '0.08em' }}
@@ -64,6 +81,33 @@ export default function WhatsAppMessagePreview({
           </span>
         )}
       </div>
+
+      {options.length > 1 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="eva-micro" style={{ color: 'rgba(255,255,255,0.40)', letterSpacing: '0.04em' }}>
+            Not right? Pick the contact:
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {options.map((c) => {
+              const active = c.jid === selected.jid;
+              return (
+                <button
+                  key={c.jid}
+                  onClick={() => setSelected(c)}
+                  className="eva-tab rounded-full px-3 py-1 transition-colors"
+                  style={{
+                    color: active ? '#fff' : 'rgba(255,255,255,0.55)',
+                    background: active ? 'rgba(34,197,94,0.22)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${active ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                  }}
+                >
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <p
         className="eva-body italic rounded-lg px-3 py-2"

@@ -375,16 +375,36 @@ export const executeTask = inngest.createFunction(
 
         const proposedMessage = await step.run("whatsapp-resolve-recipient", async () => {
           console.log(`[whatsapp-send] recipient_query="${intent.recipient_query}" body="${intent.message_body}"`);
-          const resolved = resolveRecipient(intent.recipient_query);
-          if (!resolved) {
-            throw new Error(`No contact found matching "${intent.recipient_query}"`);
+
+          // Best-effort resolve. resolveRecipient can throw for an alias that
+          // maps to a name with no chat — swallow it and fall back to fuzzy
+          // candidates so the task stays actionable instead of dying.
+          let resolved: ReturnType<typeof resolveRecipient> = null;
+          try {
+            resolved = resolveRecipient(intent.recipient_query);
+          } catch (e) {
+            console.log(`[whatsapp-send] resolveRecipient threw, falling back to candidates: ${e instanceof Error ? e.message : e}`);
           }
-          console.log(`[whatsapp-send] resolved → ${resolved.name} (${resolved.jid})${resolved.alias ? ` via alias "${resolved.alias}"` : ''}`);
+
+          // Top fuzzy matches (contacts only) to offer as alternatives.
+          const candidates = searchContacts(intent.recipient_query, false)
+            .slice(0, 5)
+            .map((c) => ({ jid: c.jid, name: c.name }));
+
+          const best = resolved ?? (candidates[0] ?? null);
+          if (!best) {
+            throw new Error(`No WhatsApp contact matches "${intent.recipient_query}". Check the spelling, or save them in your contacts and re-sync.`);
+          }
+
+          // De-dupe the chosen recipient out of the alternatives list.
+          const alternatives = candidates.filter((c) => c.jid !== best.jid);
+          console.log(`[whatsapp-send] resolved → ${best.name} (${best.jid})${resolved?.alias ? ` via alias "${resolved.alias}"` : ''}; ${alternatives.length} alternatives`);
           return {
-            recipient: resolved.jid,
-            recipient_name: resolved.name,
+            recipient: best.jid,
+            recipient_name: best.name,
             body: intent.message_body,
-            ...(resolved.alias ? { alias: resolved.alias } : {}),
+            ...(resolved?.alias ? { alias: resolved.alias } : {}),
+            ...(alternatives.length > 0 ? { candidates: alternatives } : {}),
           };
         });
 
@@ -407,6 +427,36 @@ export const executeTask = inngest.createFunction(
         return { success: true };
       } catch (error: unknown) {
         await step.run("update-status-failed-whatsapp-send", async () => {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          await supabase
+            .from("tasks")
+            .update({ status: "failed", error_reason: message })
+            .eq("id", id);
+        });
+        throw error;
+      }
+    }
+
+    // --- Tweet (X) post path — no API, web-intent + manual click on approval ---
+    if (intent.type === "tweet_post") {
+      try {
+        await step.run("update-needs-approval-tweet", async () => {
+          const { error } = await supabase
+            .from("tasks")
+            .update({
+              task_type: "twitter",
+              status: "needs_approval",
+              requires_approval: true,
+              proposed_message: { body: intent.body },
+              result_summary: `Tweet: "${intent.body}"`,
+            })
+            .eq("id", id);
+          if (error) throw error;
+        });
+
+        return { success: true };
+      } catch (error: unknown) {
+        await step.run("update-status-failed-tweet", async () => {
           const message = error instanceof Error ? error.message : "Unknown error";
           await supabase
             .from("tasks")

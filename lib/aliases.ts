@@ -14,5 +14,5 @@ export const WHATSAPP_ALIASES: WhatsAppAlias[] = [
 
 export function resolveAlias(query: string): WhatsAppAlias | null {
   const q = query.trim().toLowerCase();
-  return WHATSAPP_ALIASES.find((a) => a.alias === q) ?? null;
+  return WHATSAPP_ALIASES.find((a) => a.alias.trim().toLowerCase() === q) ?? null;
 }
