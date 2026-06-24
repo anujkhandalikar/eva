@@ -49,6 +49,39 @@ function cronToFriendly(expr: string | null): string {
   return `Daily at ${h12}:${String(mn).padStart(2, '0')} ${ampm}`;
 }
 
+function istParts(d: Date): { date: string; hour12: number; minute: number; ampm: 'AM' | 'PM' } {
+  // format date/time in IST regardless of host TZ
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  const date = `${get('year')}-${get('month')}-${get('day')}`;
+  let h24 = parseInt(get('hour'), 10);
+  const minute = parseInt(get('minute'), 10);
+  const ampm: 'AM' | 'PM' = h24 >= 12 ? 'PM' : 'AM';
+  if (h24 === 0) h24 = 12;
+  else if (h24 > 12) h24 -= 12;
+  return { date, hour12: h24, minute, ampm };
+}
+
+function todayIstDate(): string {
+  return istParts(new Date()).date;
+}
+
+function addDaysIst(date: string, n: number): string {
+  // date is yyyy-mm-dd IST. Convert to noon IST then add days, re-extract.
+  const d = new Date(`${date}T12:00:00+05:30`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return istParts(d).date;
+}
+
 function fmtIst(iso: string | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('en-IN', {
@@ -80,7 +113,10 @@ export default function ScheduledPage() {
   const [hour12, setHour12] = useState(11);
   const [minute, setMinute] = useState(11);
   const [ampm, setAmpm] = useState<'AM' | 'PM'>('AM');
-  const [nextRunLocal, setNextRunLocal] = useState(''); // datetime-local IST
+  const [oneShotDate, setOneShotDate] = useState<string>(todayIstDate());
+  const [oneShotHour12, setOneShotHour12] = useState(11);
+  const [oneShotMinute, setOneShotMinute] = useState(11);
+  const [oneShotAmpm, setOneShotAmpm] = useState<'AM' | 'PM'>('AM');
   const [recipient, setRecipient] = useState('');
   const [message, setMessage] = useState('');
   const [mediaPath, setMediaPath] = useState('');
@@ -120,9 +156,11 @@ export default function ScheduledPage() {
         run_once: runOnce,
       };
       if (runOnce) {
-        if (!nextRunLocal) throw new Error('Pick a fire time');
-        // datetime-local has no TZ; treat as IST (+05:30)
-        body.next_run_at = `${nextRunLocal}:00+05:30`;
+        if (!oneShotDate) throw new Error('Pick a date');
+        const h24 = to24h(oneShotHour12, oneShotAmpm);
+        const hh = String(h24).padStart(2, '0');
+        const mm = String(oneShotMinute).padStart(2, '0');
+        body.next_run_at = `${oneShotDate}T${hh}:${mm}:00+05:30`;
       } else {
         body.cron_expr = buildCron(freq, hour12, minute, ampm);
         if (maxRuns.trim()) {
@@ -143,7 +181,10 @@ export default function ScheduledPage() {
       setRecipient('');
       setMessage('');
       setMediaPath('');
-      setNextRunLocal('');
+      setOneShotDate(todayIstDate());
+      setOneShotHour12(11);
+      setOneShotMinute(11);
+      setOneShotAmpm('AM');
       setMaxRuns('');
       await load();
     } catch (e) {
@@ -177,7 +218,8 @@ export default function ScheduledPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="h-full w-full overflow-y-auto">
+      <div className="mx-auto max-w-5xl p-6">
       <h1 className="text-2xl font-semibold mb-2">Scheduled sends</h1>
       <p className="text-sm text-gray-600 mb-6">
         Times are IST. Creating a schedule = approval — Eva will send automatically.
@@ -212,15 +254,110 @@ export default function ScheduledPage() {
         </div>
 
         {runOnce ? (
-          <label className="block text-sm">
-            Fire at (IST)
-            <input
-              type="datetime-local"
-              value={nextRunLocal}
-              onChange={(e) => setNextRunLocal(e.target.value)}
-              className="mt-1 block w-full rounded border px-2 py-1"
-            />
-          </label>
+          <div className="space-y-2">
+            <div className="text-sm">Fire at (IST)</div>
+            <div className="flex flex-wrap gap-2 items-center text-sm">
+              <input
+                type="date"
+                value={oneShotDate}
+                min={todayIstDate()}
+                onChange={(e) => setOneShotDate(e.target.value)}
+                className="rounded border px-2 py-1"
+              />
+              <select
+                value={oneShotHour12}
+                onChange={(e) => setOneShotHour12(parseInt(e.target.value, 10))}
+                className="rounded border px-2 py-1"
+              >
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                  <option key={h} value={h}>{h}</option>
+                ))}
+              </select>
+              <span>:</span>
+              <select
+                value={oneShotMinute}
+                onChange={(e) => setOneShotMinute(parseInt(e.target.value, 10))}
+                className="rounded border px-2 py-1"
+              >
+                {Array.from({ length: 60 }, (_, i) => i).map((m) => (
+                  <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                ))}
+              </select>
+              <select
+                value={oneShotAmpm}
+                onChange={(e) => setOneShotAmpm(e.target.value as 'AM' | 'PM')}
+                className="rounded border px-2 py-1"
+              >
+                <option value="AM">AM</option>
+                <option value="PM">PM</option>
+              </select>
+              <span className="text-xs text-gray-500">IST</span>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  const p = istParts(new Date(Date.now() + 5 * 60_000));
+                  setOneShotDate(p.date);
+                  setOneShotHour12(p.hour12);
+                  setOneShotMinute(p.minute);
+                  setOneShotAmpm(p.ampm);
+                }}
+                className="rounded border px-2 py-1 hover:bg-gray-50"
+              >
+                +5 min
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = istParts(new Date(Date.now() + 60 * 60_000));
+                  setOneShotDate(p.date);
+                  setOneShotHour12(p.hour12);
+                  setOneShotMinute(p.minute);
+                  setOneShotAmpm(p.ampm);
+                }}
+                className="rounded border px-2 py-1 hover:bg-gray-50"
+              >
+                +1 hr
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOneShotDate(todayIstDate());
+                  setOneShotHour12(11);
+                  setOneShotMinute(11);
+                  setOneShotAmpm('AM');
+                }}
+                className="rounded border px-2 py-1 hover:bg-gray-50"
+              >
+                Today 11:11 AM
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOneShotDate(addDaysIst(todayIstDate(), 1));
+                  setOneShotHour12(11);
+                  setOneShotMinute(11);
+                  setOneShotAmpm('AM');
+                }}
+                className="rounded border px-2 py-1 hover:bg-gray-50"
+              >
+                Tomorrow 11:11 AM
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOneShotDate(addDaysIst(todayIstDate(), 1));
+                  setOneShotHour12(9);
+                  setOneShotMinute(0);
+                  setOneShotAmpm('AM');
+                }}
+                className="rounded border px-2 py-1 hover:bg-gray-50"
+              >
+                Tomorrow 9 AM
+              </button>
+            </div>
+          </div>
         ) : (
           <>
             <div className="space-y-2">
@@ -422,6 +559,7 @@ export default function ScheduledPage() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

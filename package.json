@@ -3,7 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "concurrently -k -n next,inngest,whatsapp,blinkit -c blue,magenta,green,yellow \"npm:dev:next\" \"npm:dev:inngest\" \"npm:dev:whatsapp\" \"npm:dev:blinkit\"",
+    "dev:core": "concurrently -k -n next,inngest -c blue,magenta \"npm:dev:next\" \"npm:dev:inngest\"",
+    "dev:next": "next dev",
+    "dev:inngest": "npx --yes inngest-cli@latest dev -u http://localhost:3000/api/inngest",
+    "dev:whatsapp": "cd \"$HOME/tools/whatsapp-mcp/whatsapp-bridge\" && ./whatsapp-bridge",
+    "dev:blinkit": "cd \"$HOME/blinkit-mcp\" && SERVE_HTTPS=true ./start.sh",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -30,6 +35,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^10.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
